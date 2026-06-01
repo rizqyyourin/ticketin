@@ -1,0 +1,57 @@
+asyncapi: 3.0.0
+info:
+	title: Ticketin Event Contract
+	version: 0.1.0
+	description: >
+		Baseline async event contract for Ticketin. Extend this file as queue,
+		notifications, and service request events are implemented.
+
+servers:
+	local:
+		host: localhost:5672
+		protocol: amqp
+		description: Local broker for development.
+
+channels:
+	service-request.created:
+		address: service-request.created
+		messages:
+			serviceRequestCreated:
+				$ref: '#/components/messages/ServiceRequestCreated'
+
+operations:
+	publishServiceRequestCreated:
+		action: send
+		channel:
+			$ref: '#/channels/service-request.created'
+		messages:
+			- $ref: '#/channels/service-request.created/messages/serviceRequestCreated'
+
+components:
+	messages:
+		ServiceRequestCreated:
+			name: ServiceRequestCreated
+			title: Service Request Created Event
+			payload:
+				type: object
+				required:
+					- requestId
+					- customerId
+					- queueId
+					- createdAt
+				properties:
+					requestId:
+						type: string
+						format: uuid
+					customerId:
+						type: string
+						format: uuid
+					queueId:
+						type: string
+						format: uuid
+					channel:
+						type: string
+						enum: [email]
+					createdAt:
+						type: string
+						format: date-time
