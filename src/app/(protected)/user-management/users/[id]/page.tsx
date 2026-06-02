@@ -19,6 +19,7 @@ import Link from "next/link";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { DetailShell } from "@/components/layouts/page-shell";
 import { toast } from "sonner";
+import { PhoneInput } from "@/components/ui/phone-input";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ function NewUserForm() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [roleId, setRoleId] = useState("");
   const [status, setStatus] = useState<"active" | "inactive">("active");
@@ -73,7 +74,7 @@ function NewUserForm() {
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim(), email: email.trim(), phone: phone.trim() || null, password, status, roleId: roleId || null }),
+        body: JSON.stringify({ username: username.trim(), email: email.trim(), phone: phone || null, password, status, roleId: roleId || null }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -134,7 +135,7 @@ function NewUserForm() {
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-zinc-500">Phone</label>
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+62 8xx-xxxx-xxxx" className={inputCls} />
+          <PhoneInput value={phone} onChange={setPhone} />
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-zinc-500">Role</label>
@@ -187,7 +188,7 @@ function EditModal({ user, roles, onClose, onSaved }: {
 }) {
   const [username, setUsername] = useState(user.username);
   const [email, setEmail] = useState(user.email);
-  const [phone, setPhone] = useState(user.phone ?? "");
+  const [phone, setPhone] = useState<string | null>(user.phone ?? null);
   const [roleId, setRoleId] = useState(user.role?.id ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -242,7 +243,7 @@ function EditModal({ user, roles, onClose, onSaved }: {
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-zinc-500">Phone</label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} />
+            <PhoneInput value={phone} onChange={setPhone} />
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-zinc-500">Role</label>

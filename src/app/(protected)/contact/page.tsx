@@ -14,9 +14,23 @@ import {
   Mail,
   Building2,
 } from "lucide-react";
-import { ALL_CONTACTS, TITLE_STYLES, type Title, type Contact } from "@/features/contact/mock-data";
-import { getLocalItems } from "@/lib/local-store";
 import { PageShell } from "@/components/layouts/page-shell";
+
+type Title = "Mr" | "Ms";
+
+interface Contact {
+  id: string;
+  title: Title;
+  customerName: string;
+  phone: string | null;
+  email: string;
+  organization: string | null;
+}
+
+const TITLE_STYLES: Record<Title, string> = {
+  Mr: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  Ms: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
+};
 
 type SortField = "title" | "customerName" | "phone" | "email" | "organization";
 type SortDir = "asc" | "desc";
@@ -36,11 +50,15 @@ export default function ContactPage() {
   const [sortField, setSortField] = useState<SortField>("customerName");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const [contacts, setContacts] = useState<Contact[]>([...ALL_CONTACTS]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const local = getLocalItems<Contact>("contacts");
-    if (local.length > 0) setContacts([...local, ...ALL_CONTACTS]);
+    fetch("/api/contacts")
+      .then((r) => r.json())
+      .then((data: Contact[]) => setContacts(data))
+      .catch(() => setContacts([]))
+      .finally(() => setLoading(false));
   }, []);
   const loaderRef = useRef<HTMLDivElement>(null);
 
@@ -60,8 +78,8 @@ export default function ContactPage() {
       return (
         c.customerName.toLowerCase().includes(q) ||
         c.email.toLowerCase().includes(q) ||
-        c.phone.includes(q) ||
-        c.organization.toLowerCase().includes(q) ||
+        (c.phone ?? "").includes(q) ||
+        (c.organization ?? "").toLowerCase().includes(q) ||
         c.title.toLowerCase().includes(q)
       );
     })
@@ -70,9 +88,9 @@ export default function ContactPage() {
       switch (sortField) {
         case "title": cmp = a.title.localeCompare(b.title); break;
         case "customerName": cmp = a.customerName.localeCompare(b.customerName); break;
-        case "phone": cmp = a.phone.localeCompare(b.phone); break;
+        case "phone": cmp = (a.phone ?? "").localeCompare(b.phone ?? ""); break;
         case "email": cmp = a.email.localeCompare(b.email); break;
-        case "organization": cmp = a.organization.localeCompare(b.organization); break;
+        case "organization": cmp = (a.organization ?? "").localeCompare(b.organization ?? ""); break;
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -164,7 +182,7 @@ export default function ContactPage() {
               {visible.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-12 text-center text-sm text-zinc-400">
-                    No contacts found.
+                    {loading ? "Loading contacts..." : "No contacts found."}
                   </td>
                 </tr>
               ) : (

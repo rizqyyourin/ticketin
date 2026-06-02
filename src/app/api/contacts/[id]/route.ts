@@ -21,10 +21,17 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const { id } = await params;
   const body = await request.json();
+  const { title, customerName, phone, email, organization } = body;
 
   const contact = await prisma.contact.update({
     where: { id },
-    data: body,
+    data: {
+      ...(title !== undefined ? { title } : {}),
+      ...(customerName !== undefined ? { customerName } : {}),
+      ...(phone !== undefined ? { phone } : {}),
+      ...(email !== undefined ? { email } : {}),
+      ...(organization !== undefined ? { organization } : {}),
+    },
   });
 
   return NextResponse.json(contact);

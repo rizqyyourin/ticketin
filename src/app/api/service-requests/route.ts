@@ -9,11 +9,13 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const priority = searchParams.get("priority");
+  const contactId = searchParams.get("contactId");
 
   const tickets = await prisma.serviceRequest.findMany({
     where: {
       ...(status ? { status: status as never } : {}),
       ...(priority ? { priority: priority as never } : {}),
+      ...(contactId ? { contactId } : {}),
     },
     include: {
       contact: { select: { customerName: true, email: true } },

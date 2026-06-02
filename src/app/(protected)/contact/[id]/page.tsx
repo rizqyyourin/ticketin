@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Users,
@@ -20,12 +20,39 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
-import { ALL_CONTACTS, TITLE_STYLES, type Contact, type Title } from "@/features/contact/mock-data";
-import { ALL_REQUESTS, type Priority, type Status } from "@/features/service-request/mock-data";
-import { addLocalItem, getLocalItems } from "@/lib/local-store";
 import { DetailShell } from "@/components/layouts/page-shell";
+import { PhoneInput } from "@/components/ui/phone-input";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Title = "Mr" | "Ms";
+type Priority = "high" | "medium" | "low";
+type Status = "open" | "in_progress" | "pending" | "resolved" | "closed";
+
+interface Contact {
+  id: string;
+  title: Title;
+  customerName: string;
+  phone: string | null;
+  email: string;
+  organization: string | null;
+}
+
+interface ServiceRequest {
+  id: string;
+  ticketNumber: string;
+  subject: string;
+  priority: Priority;
+  status: Status;
+  createdAt: string;
+}
 
 // ─── Style maps ───────────────────────────────────────────────────────────────
+
+const TITLE_STYLES: Record<Title, string> = {
+  Mr: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  Ms: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
+};
 
 const PRIORITY_STYLES: Record<Priority, { badge: string; label: string }> = {
   high: { badge: "bg-red-500/10 text-red-500 border border-red-500/20", label: "High" },
@@ -41,8 +68,8 @@ const STATUS_STYLES: Record<Status, { badge: string; label: string; dot: string 
   closed: { badge: "bg-zinc-500/10 text-zinc-500 border border-zinc-500/20", label: "Closed", dot: "bg-zinc-400" },
 };
 
-function formatDate(d: Date) {
-  return d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+function formatDate(d: string) {
+  return new Date(d).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
@@ -68,12 +95,42 @@ function EditModal({
 }: {
   contact: Contact;
   onClose: () => void;
-  onSave: (updated: Partial<Contact>) => void;
+  onSave: (updated: Contact) => void;
 }) {
   const [customerName, setCustomerName] = useState(contact.customerName);
-  const [phone, setPhone] = useState(contact.phone);
+  const [phone, setPhone] = useState<string | null>(contact.phone ?? null);
   const [email, setEmail] = useState(contact.email);
-  const [organization, setOrganization] = useState(contact.organization);
+  const [organization, setOrganization] = useState(contact.organization ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSave = async () => {
+    if (!customerName.trim() || !email.trim()) {
+      setError("Name and email are required.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/contacts/${contact.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName: customerName.trim(),
+          phone: phone || null,
+          email: email.trim(),
+          organization: organization.trim() || null,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to update contact");
+      const updated: Contact = await res.json();
+      onSave(updated);
+    } catch {
+      setError("Failed to save. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -86,8 +143,9 @@ function EditModal({
           </button>
         </div>
         <div className="p-5 space-y-4">
+          {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-zinc-500">Full Name</label>
+            <label className="text-xs font-medium text-zinc-500">Full Name <span className="text-red-500">*</span></label>
             <input
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
@@ -96,14 +154,10 @@ function EditModal({
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-zinc-500">Phone Number</label>
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
-            />
+            <PhoneInput value={phone} onChange={setPhone} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-zinc-500">Email Address</label>
+            <label className="text-xs font-medium text-zinc-500">Email Address <span className="text-red-500">*</span></label>
             <input
               type="email"
               value={email}
@@ -122,11 +176,12 @@ function EditModal({
         </div>
         <div className="flex items-center gap-2 px-5 pb-5">
           <button
-            onClick={() => onSave({ customerName, phone, email, organization })}
-            className="cursor-pointer flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+            onClick={handleSave}
+            disabled={saving}
+            className="cursor-pointer flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
           >
             <Check className="size-4" />
-            Save Changes
+            {saving ? "Saving..." : "Save Changes"}
           </button>
           <button
             onClick={onClose}
@@ -142,7 +197,28 @@ function EditModal({
 
 // ─── Delete Confirm Modal ─────────────────────────────────────────────────────
 
-function DeleteModal({ name, onClose, onConfirm }: { name: string; onClose: () => void; onConfirm: () => void }) {
+function DeleteModal({
+  id,
+  name,
+  onClose,
+}: {
+  id: string;
+  name: string;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
+
+  const handleConfirm = async () => {
+    setDeleting(true);
+    try {
+      await fetch(`/api/contacts/${id}`, { method: "DELETE" });
+      router.push("/contact");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -161,10 +237,11 @@ function DeleteModal({ name, onClose, onConfirm }: { name: string; onClose: () =
         </p>
         <div className="flex items-center gap-2 pt-1">
           <button
-            onClick={onConfirm}
-            className="cursor-pointer flex-1 py-2 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors"
+            onClick={handleConfirm}
+            disabled={deleting}
+            className="cursor-pointer flex-1 py-2 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-60"
           >
-            Delete
+            {deleting ? "Deleting..." : "Delete"}
           </button>
           <button
             onClick={onClose}
@@ -184,41 +261,58 @@ function NewContactForm() {
   const router = useRouter();
   const [title, setTitle] = useState<Title>("Mr");
   const [customerName, setCustomerName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [organization, setOrganization] = useState("");
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [serverError, setServerError] = useState("");
 
-  const inputCls = "w-full px-3 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all";
+  const inputCls =
+    "w-full px-3 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all";
 
   const validate = () => {
     const e: Record<string, string> = {};
     if (!customerName.trim()) e.customerName = "Full name is required";
-    if (!phone.trim()) e.phone = "Phone number is required";
     if (!email.trim()) e.email = "Email address is required";
     return e;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const e = validate();
     if (Object.keys(e).length > 0) { setErrors(e); return; }
 
-    const newContact: Contact = {
-      id: `new-${Date.now()}`,
-      title,
-      customerName: customerName.trim(),
-      phone: phone.trim(),
-      email: email.trim(),
-      organization: organization.trim(),
-    };
-    addLocalItem("contacts", newContact);
-    setSaved(true);
-    setTimeout(() => router.push("/contact"), 800);
+    setSaving(true);
+    setServerError("");
+    try {
+      const res = await fetch("/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          customerName: customerName.trim(),
+          phone: phone || null,
+          email: email.trim(),
+          organization: organization.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setServerError(data.error ?? "Failed to create contact");
+        return;
+      }
+      setSaved(true);
+      setTimeout(() => router.push("/contact"), 800);
+    } catch {
+      setServerError("Network error. Try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <DetailShell >
+    <DetailShell>
       <Breadcrumb items={[
         { label: "Contact", href: "/contact" },
         { label: "New Contact" },
@@ -236,21 +330,30 @@ function NewContactForm() {
         </div>
         <button
           onClick={handleSave}
-          disabled={saved}
+          disabled={saving || saved}
           className="cursor-pointer flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
         >
           {saved ? <Check className="size-4" /> : <UserPlus className="size-4" />}
-          {saved ? "Saved!" : "Save Contact"}
+          {saved ? "Saved!" : saving ? "Saving..." : "Save Contact"}
         </button>
       </div>
+
+      {serverError && (
+        <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-sm text-red-600 dark:text-red-400">
+          {serverError}
+        </div>
+      )}
 
       <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-5">
         <div className="grid grid-cols-3 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-zinc-500">Title</label>
             <div className="relative">
-              <select value={title} onChange={(e) => setTitle(e.target.value as Title)}
-                className="w-full appearance-none px-3 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all pr-8">
+              <select
+                value={title}
+                onChange={(e) => setTitle(e.target.value as Title)}
+                className="w-full appearance-none px-3 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all pr-8"
+              >
                 <option value="Mr">Mr</option>
                 <option value="Ms">Ms</option>
               </select>
@@ -259,78 +362,102 @@ function NewContactForm() {
           </div>
           <div className="col-span-2 space-y-1.5">
             <label className="text-xs font-medium text-zinc-500">Full Name <span className="text-red-500">*</span></label>
-            <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Customer full name" className={inputCls + (errors.customerName ? " border-red-400" : "")} />
+            <input
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Customer full name"
+              className={inputCls + (errors.customerName ? " border-red-400" : "")}
+            />
             {errors.customerName && <p className="text-xs text-red-500">{errors.customerName}</p>}
           </div>
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-zinc-500">Phone Number <span className="text-red-500">*</span></label>
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+62 8xx-xxxx-xxxx" className={inputCls + (errors.phone ? " border-red-400" : "")} />
-          {errors.phone && <p className="text-xs text-red-500">{errors.phone}</p>}
+          <label className="text-xs font-medium text-zinc-500">Phone Number</label>
+          <PhoneInput value={phone} onChange={setPhone} />
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-zinc-500">Email Address <span className="text-red-500">*</span></label>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@example.com" className={inputCls + (errors.email ? " border-red-400" : "")} />
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="contact@example.com"
+            className={inputCls + (errors.email ? " border-red-400" : "")}
+          />
           {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-zinc-500">Organization</label>
-          <input value={organization} onChange={(e) => setOrganization(e.target.value)} placeholder="PT / CV / UD ..." className={inputCls} />
+          <input
+            value={organization}
+            onChange={(e) => setOrganization(e.target.value)}
+            placeholder="PT / CV / UD ..."
+            className={inputCls}
+          />
         </div>
       </div>
     </DetailShell>
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ─── Detail Page ──────────────────────────────────────────────────────────────
 
-export default function ContactDetailPage() {
-  const params = useParams();
+function ContactDetail({ id }: { id: string }) {
   const router = useRouter();
-  const rawId = params?.id;
-  const id = Array.isArray(rawId) ? rawId[0] : rawId;
-
-  if (id === "new") return <NewContactForm />;
-
-  const allContacts = [...getLocalItems<Contact>("contacts"), ...ALL_CONTACTS];
-  const initialContact = allContacts.find((c) => c.id === id);
-
-  const [contact, setContact] = useState<Contact | undefined>(initialContact);
+  const [contact, setContact] = useState<Contact | null>(null);
+  const [relatedRequests, setRelatedRequests] = useState<ServiceRequest[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
 
-  if (!contact) {
+  useEffect(() => {
+    Promise.all([
+      fetch(`/api/contacts/${id}`).then((r) => (r.ok ? r.json() : null)),
+      fetch(`/api/service-requests?contactId=${id}`).then((r) => (r.ok ? r.json() : [])),
+    ])
+      .then(([c, sr]) => {
+        setContact(c);
+        setRelatedRequests(sr);
+      })
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
     return (
-      <div className="p-6 flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <Users className="size-12 text-zinc-300" />
-        <p className="text-zinc-500 text-sm">Contact not found.</p>
-        <Link
-          href="/contact"
-          className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
-        >
-          Back to Contacts
-        </Link>
-      </div>
+      <DetailShell>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <span className="text-sm text-zinc-400">Loading...</span>
+        </div>
+      </DetailShell>
     );
   }
 
-  // Find related service requests by customer name
-  const relatedRequests = ALL_REQUESTS.filter(
-    (r) => r.customerName === contact.customerName
-  );
+  if (!contact) {
+    return (
+      <DetailShell>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <Users className="size-12 text-zinc-300" />
+          <p className="text-zinc-500 text-sm">Contact not found.</p>
+          <Link
+            href="/contact"
+            className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+          >
+            Back to Contacts
+          </Link>
+        </div>
+      </DetailShell>
+    );
+  }
 
   const titleStyle = TITLE_STYLES[contact.title];
 
   return (
     <>
-      <DetailShell >
-        {/* Breadcrumb */}
-        <Breadcrumb
-          items={[
-            { label: "Contact", href: "/contact" },
-            { label: contact.customerName },
-          ]}
-        />
+      <DetailShell>
+        <Breadcrumb items={[
+          { label: "Contact", href: "/contact" },
+          { label: contact.customerName },
+        ]} />
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
@@ -377,16 +504,11 @@ export default function ContactDetailPage() {
                 <Users className="size-4 text-zinc-400" />
                 Contact Info
               </h2>
-
-              <InfoRow
-                icon={<User className="size-4 text-zinc-400" />}
-                label="Full Name"
-                value={contact.customerName}
-              />
+              <InfoRow icon={<User className="size-4 text-zinc-400" />} label="Full Name" value={contact.customerName} />
               <InfoRow
                 icon={<Phone className="size-4 text-zinc-400" />}
                 label="Phone Number"
-                value={<span className="font-mono">{contact.phone}</span>}
+                value={<span className="font-mono">{contact.phone ?? "—"}</span>}
               />
               <InfoRow
                 icon={<Mail className="size-4 text-zinc-400" />}
@@ -397,25 +519,20 @@ export default function ContactDetailPage() {
                   </a>
                 }
               />
-              <InfoRow
-                icon={<Building2 className="size-4 text-zinc-400" />}
-                label="Organization"
-                value={contact.organization}
-              />
+              <InfoRow icon={<Building2 className="size-4 text-zinc-400" />} label="Organization" value={contact.organization ?? "—"} />
             </div>
 
-            {/* Stats */}
+            {/* Ticket Summary */}
             <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-5 space-y-3">
               <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Ticket Summary</h2>
               <div className="grid grid-cols-2 gap-3">
                 {(["open", "in_progress", "resolved", "closed"] as Status[]).map((s) => {
                   const count = relatedRequests.filter((r) => r.status === s).length;
                   const st = STATUS_STYLES[s];
+                  const textColor = st.badge.split(" ").find((c) => c.startsWith("text-")) ?? "text-zinc-500";
                   return (
                     <div key={s} className="rounded-xl bg-zinc-50 dark:bg-zinc-800/50 p-3 space-y-1">
-                      <p className={`text-xs font-semibold ${st.badge.includes("text-") ? st.badge.split(" ").find((c) => c.startsWith("text-")) : "text-zinc-500"}`}>
-                        {st.label}
-                      </p>
+                      <p className={`text-xs font-semibold ${textColor}`}>{st.label}</p>
                       <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-200">{count}</p>
                     </div>
                   );
@@ -497,27 +614,36 @@ export default function ContactDetailPage() {
         </div>
       </DetailShell>
 
-      {/* Modals */}
       {showEdit && (
         <EditModal
           contact={contact}
           onClose={() => setShowEdit(false)}
           onSave={(updated) => {
-            setContact((prev) => prev ? { ...prev, ...updated } : prev);
+            setContact(updated);
             setShowEdit(false);
           }}
         />
       )}
       {showDelete && (
         <DeleteModal
+          id={contact.id}
           name={contact.customerName}
           onClose={() => setShowDelete(false)}
-          onConfirm={() => {
-            setShowDelete(false);
-            router.push("/contact");
-          }}
         />
       )}
     </>
   );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function ContactDetailPage() {
+  const params = useParams();
+  const rawId = params?.id;
+  const id = Array.isArray(rawId) ? rawId[0] : rawId;
+
+  if (id === "new") return <NewContactForm />;
+  if (!id) return null;
+
+  return <ContactDetail id={id} />;
 }

@@ -1,5 +1,23 @@
 # Daily Progress Log
 
+## 2026-06-02 - Contact Module: Full API Integration
+
+- Area: frontend, backend, database
+- Summary:
+  1. **`contact/page.tsx`** — Hapus mock data + localStorage. Fetch dari `GET /api/contacts`. Loading state tambah. Null-safe untuk `phone` dan `organization` field.
+  2. **`contact/[id]/page.tsx`** — Full rewrite. `NewContactForm`: POST ke `/api/contacts` dengan error handling. `EditModal`: PATCH ke `/api/contacts/:id` (whitelist fields). `DeleteModal`: DELETE ke `/api/contacts/:id`, redirect ke list. Detail view: fetch contact + related service requests by `contactId` via `Promise.all`. Hapus semua mock + localStorage dependency.
+  3. **`api/contacts/[id]/route.ts`** — Fix PATCH: whitelist field (`title`, `customerName`, `phone`, `email`, `organization`), hapus mass assignment.
+  4. **`api/service-requests/route.ts`** — Tambah `contactId` query param filter untuk support detail page related tickets.
+  5. **`prisma/seed.ts`** — Tambah seed: 3 contacts (Andi Pratama, Citra Dewi, Budi Santoso) + 2 service requests (SR0001, SR0002) linked ke contacts. `npm run db:seed` sukses.
+  6. **Build verified** — `npm run build` sukses. `/contact` static, `/contact/[id]` dynamic.
+- Files:
+  - `src/app/(protected)/contact/page.tsx` (rewrite — API integration)
+  - `src/app/(protected)/contact/[id]/page.tsx` (rewrite — full API integration)
+  - `src/app/api/contacts/[id]/route.ts` (fix PATCH whitelist)
+  - `src/app/api/service-requests/route.ts` (tambah contactId filter)
+  - `prisma/seed.ts` (tambah contacts + service requests seed)
+- Next: Integrasi frontend Service Request page ke `/api/service-requests` (replace mock data).
+
 ## 2026-06-02 - User Management: Clickable Status Toggle
 
 - Area: frontend

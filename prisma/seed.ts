@@ -119,6 +119,88 @@ async function main() {
   }
 
   console.log(`✓ Queues seeded: ${techQueue.name}, ${billingQueue.name}`);
+
+  // ─── Contacts ─────────────────────────────────────────────────────────────
+  const contact1 = await prisma.contact.upsert({
+    where: { email: "andi.pratama@nusantaratech.co.id" },
+    update: {},
+    create: {
+      title: "Mr",
+      customerName: "Andi Pratama",
+      phone: "+62 811-2345-6789",
+      email: "andi.pratama@nusantaratech.co.id",
+      organization: "PT Nusantara Tech",
+    },
+  });
+
+  const contact2 = await prisma.contact.upsert({
+    where: { email: "citra.dewi@sinarharapan.co.id" },
+    update: {},
+    create: {
+      title: "Ms",
+      customerName: "Citra Dewi",
+      phone: "+62 812-9876-5432",
+      email: "citra.dewi@sinarharapan.co.id",
+      organization: "PT Sinar Harapan",
+    },
+  });
+
+  const contact3 = await prisma.contact.upsert({
+    where: { email: "budi.santoso@majujaya.co.id" },
+    update: {},
+    create: {
+      title: "Mr",
+      customerName: "Budi Santoso",
+      phone: "+62 813-5555-1234",
+      email: "budi.santoso@majujaya.co.id",
+      organization: "CV Maju Jaya",
+    },
+  });
+
+  console.log(`✓ Contacts seeded: ${contact1.customerName}, ${contact2.customerName}, ${contact3.customerName}`);
+
+  // ─── Service Requests ──────────────────────────────────────────────────────
+  const sr1 = await prisma.serviceRequest.upsert({
+    where: { ticketNumber: "SR0001" },
+    update: {},
+    create: {
+      ticketNumber: "SR0001",
+      subject: "Cannot access customer portal",
+      description: "User is unable to log in to the customer portal since this morning. Error message: 'Invalid credentials'.",
+      category: "Technical Issue",
+      priority: "high",
+      status: "open",
+      contactId: contact1.id,
+      assignedTo: agentUser.id,
+      queueId: techQueue.id,
+      dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      activityLogs: {
+        create: { type: "created", detail: "Ticket created via seed", actorId: adminUser.id },
+      },
+    },
+  });
+
+  const sr2 = await prisma.serviceRequest.upsert({
+    where: { ticketNumber: "SR0002" },
+    update: {},
+    create: {
+      ticketNumber: "SR0002",
+      subject: "Invoice discrepancy for March billing",
+      description: "The March invoice shows incorrect charges. Amount billed does not match the agreed contract terms.",
+      category: "Billing",
+      priority: "medium",
+      status: "in_progress",
+      contactId: contact2.id,
+      assignedTo: supervisorUser.id,
+      queueId: billingQueue.id,
+      dueDate: new Date(Date.now() + 48 * 60 * 60 * 1000),
+      activityLogs: {
+        create: { type: "created", detail: "Ticket created via seed", actorId: adminUser.id },
+      },
+    },
+  });
+
+  console.log(`✓ Service Requests seeded: ${sr1.ticketNumber}, ${sr2.ticketNumber}`);
 }
 
 main()
