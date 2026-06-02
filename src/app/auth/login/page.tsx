@@ -7,24 +7,34 @@ import { Label } from "@/components/ui/label";
 import { Ticket, ArrowRight, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    // Local authentication for development
-    if (email === "dev@ticketin.co.id" && password === "Ticketin123@") {
-      // Simulate login success - redirect to dashboard (to be created)
-      router.push("/dashboard");
-    } else {
+    const result = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    });
+
+    setLoading(false);
+
+    if (result?.error) {
       setError("Invalid email or password.");
+    } else {
+      router.push("/dashboard");
+      router.refresh();
     }
   };
 
@@ -85,9 +95,9 @@ export default function LoginPage() {
 
           {error && <p className="text-xs font-semibold text-primary">{error}</p>}
 
-          <Button type="submit" className="h-11 w-full rounded-xl bg-zinc-900 dark:bg-white dark:text-zinc-900 shadow-lg shadow-zinc-200 dark:shadow-none transition-all active:scale-95">
-            Sign In
-            <ArrowRight className="ml-2 h-4 w-4" />
+          <Button type="submit" disabled={loading} className="h-11 w-full rounded-xl bg-zinc-900 dark:bg-white dark:text-zinc-900 shadow-lg shadow-zinc-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed">
+            {loading ? "Signing in…" : "Sign In"}
+            {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
           </Button>
         </form>
 

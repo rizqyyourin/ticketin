@@ -1,5 +1,99 @@
 # Daily Progress Log
 
+## 2026-06-02 - User Management: Clickable Status Toggle
+
+- Area: frontend
+- Summary: Status badge di semua tab User Management (Users, Queue, Roles) sekarang clickable. Klik toggle antara `active`/`inactive` via PATCH ke endpoint masing-masing. Loader spinner muncul saat proses. Toast success/error ditampilkan. Row navigation tidak terganggu (stopPropagation untuk Users & Queue tabs).
+- Files:
+  - `src/app/(protected)/user-management/page.tsx` (tambah `togglingId` state + `handleToggleStatus` di UsersTab, QueueTab, RolesTab; ganti `<span>` status jadi `<button>`)
+- Next: Integrasi frontend Contact page ke `/api/contacts` (replace mock data).
+
+## 2026-06-03 - Fix: Sidebar Permissions Tidak Reaktif Setelah Save Modal
+
+- Area: frontend
+- Summary: Setelah save permissions di modal (RolesTab), sidebar tidak update karena layout hanya re-fetch `/api/me` saat pathname berubah. Fix: ekstrak `fetchPermissions` ke `useCallback`, tambah `window.addEventListener('permissions-updated', ...)` di layout, dan `window.dispatchEvent(new Event('permissions-updated'))` setelah save berhasil di modal.
+- Files:
+  - `src/app/dashboard/layout.tsx` (tambah useCallback + custom event listener)
+  - `src/app/dashboard/user-management/page.tsx` (dispatch event setelah save permissions)
+- Next: Integrasi frontend Contact page ke `/api/contacts` (replace mock data).
+
+## 2026-06-03 - User Management Module: Full API Integration
+
+- Area: frontend, backend
+- Summary:
+  1. **`user-management/page.tsx`** — Rewrite penuh. Hapus semua MOCK_* dan localStorage. Tiap tab (Users/Queue/Roles) fetch dari `/api/users`, `/api/queues`, `/api/roles`. AddRoleModal POST ke `/api/roles`. RolesTab punya `refreshKey` prop untuk trigger re-fetch setelah role baru disimpan.
+  2. **`users/[id]/page.tsx`** — Rewrite penuh. `NewUserForm`: tambah field password (required), role picker dari `/api/roles`, POST ke `/api/users`. Detail page: fetch `/api/users/:id` (include queueMemberships). Edit modal: PATCH ke `/api/users/:id`. Toggle status via PATCH.
+  3. **`queue/[id]/page.tsx`** — Rewrite penuh. `NewQueueForm`: member picker dari `/api/users`, POST ke `/api/queues` dengan `memberIds`. Detail page: fetch `/api/queues/:id`. Add/remove member: PATCH dengan full `memberIds` array. Edit modal, toggle status via PATCH.
+  4. **Seed re-run** — `npm run db:seed` sukses memastikan module-level permissions (format `{ "Service Request": true, ... }`) di DB.
+  5. **Build verified** — `npm run build` sukses. Semua 3 halaman terdaftar sebagai dynamic (`ƒ`) routes.
+- Files:
+  - `src/app/dashboard/user-management/page.tsx` (rewrite — API integration)
+  - `src/app/dashboard/user-management/users/[id]/page.tsx` (rewrite — API integration + password field)
+  - `src/app/dashboard/user-management/queue/[id]/page.tsx` (rewrite — API integration + member management)
+- Next: Integrasi frontend Contact page ke `/api/contacts` (replace mock data).
+
+
+## 2026-06-02 - Auth Integration: Login Page + Middleware
+
+- Area: frontend, backend
+- Summary:
+  1. **Login page** — Ganti hardcoded credential check dengan `signIn("credentials", { redirect: false })` dari `next-auth/react`. Tambah `loading` state agar tombol disabled saat request berjalan.
+  2. **Middleware** — Buat `src/middleware.ts` yang mengeksport `auth` dari NextAuth sebagai middleware. Semua route `/dashboard/*` otomatis di-protect — unauthenticated user di-redirect ke `/auth/login`.
+  3. **Build verified** — `npm run build` sukses, middleware terdaftar sebagai `ƒ Proxy (Middleware)`.
+- Files:
+  - `src/app/auth/login/page.tsx` (replace hardcoded auth → signIn())
+  - `src/middleware.ts` (new — route protection)
+- Next: Integrasi frontend Contact page ke `/api/contacts`.
+
+- Area: database
+- Summary: Buat seed script untuk admin role dan user pertama.
+  1. **`prisma/seed.ts`** — Seed `Role` Admin dengan full permissions (`view/create/update/delete` untuk semua 6 modul), lalu seed `User` `dev@ticketin.co.id` dengan password di-hash bcrypt, linked ke role Admin. Menggunakan `upsert` agar idempotent.
+  2. **`package.json`** — Tambah script `db:seed` dan config `prisma.seed` untuk `npx prisma db seed`.
+  3. **Verified** — Data terkonfirmasi masuk DB via psql: `USR-001 | dev.admin | dev@ticketin.co.id | active`.
+- Files:
+  - `prisma/seed.ts` (new)
+  - `package.json` (tambah scripts db:seed + prisma.seed config)
+- Next: Ganti login page dari hardcoded credentials ke `signIn()` NextAuth.
+
+- Area: backend, database, docs
+- Summary:
+  1. **Analisis arsitektur** — Audit menyeluruh semua mock data & model yang ada (`User`, `Queue`, `Role`, `Contact`, `ServiceRequest`, `Comment`, `ActivityLog`, `EmailTemplate`, `KnowledgeArticle`, `CsatSurvey`). Semua siap migrasi ke DB.
+  2. **Dependencies baru** — Install `prisma@7`, `@prisma/client`, `@prisma/adapter-pg`, `pg`, `next-auth@beta`, `bcryptjs`.
+  3. **Prisma Schema** — Buat `prisma/schema.prisma` lengkap mencakup semua model dengan relasi, enum, dan constraint. Kompatibel dengan Prisma 7 (tanpa `url` di datasource, pakai `prisma.config.ts`).
+  4. **Database connection** — `prisma db push` sukses ke PostgreSQL di `103.47.224.225:5432/ticketin_db`. Semua tabel terbuat. Prisma client di-generate dengan `PrismaPg` adapter (wajib Prisma 7).
+  5. **`src/lib/prisma.ts`** — Singleton PrismaClient dengan `PrismaPg` adapter untuk koneksi ke PostgreSQL.
+  6. **`src/lib/auth.ts`** — NextAuth.js v5 setup dengan Credentials provider + JWT strategy. Password di-verify dengan `bcryptjs`. Session menyimpan `id` dan `role`.
+  7. **API Routes** — Buat skeleton API routes dengan auth guard (`auth()`) untuk semua modul:
+     - `POST /api/auth/[...nextauth]` — NextAuth handler
+     - `GET/POST /api/contacts` + `GET/PATCH/DELETE /api/contacts/[id]`
+     - `GET/POST /api/service-requests` + `GET/PATCH /api/service-requests/[id]` + `POST /api/service-requests/[id]/comments`
+     - `GET/POST /api/users` + `GET/PATCH /api/users/[id]`
+     - `GET/POST /api/queues`
+     - `GET/POST /api/roles`
+  8. **`.env.example`** — Update dengan variabel `AUTH_SECRET` dan `NEXTAUTH_URL`.
+  9. **Build passed** — `npm run build` sukses tanpa error, semua 9 API routes terdaftar sebagai dynamic routes.
+- Files:
+  - `prisma/schema.prisma` (new — complete schema)
+  - `prisma.config.ts` (generated by Prisma init)
+  - `src/lib/prisma.ts` (new — Prisma singleton with pg adapter)
+  - `src/lib/auth.ts` (new — NextAuth v5 config)
+  - `src/app/api/auth/[...nextauth]/route.ts` (new)
+  - `src/app/api/contacts/route.ts` + `[id]/route.ts` (new)
+  - `src/app/api/service-requests/route.ts` + `[id]/route.ts` + `[id]/comments/route.ts` (new)
+  - `src/app/api/users/route.ts` + `[id]/route.ts` (new)
+  - `src/app/api/queues/route.ts` (new)
+  - `src/app/api/roles/route.ts` (new)
+  - `.env` (tambah AUTH_SECRET + NEXTAUTH_URL)
+  - `.env.example` (update)
+- Notes:
+  - Prisma 7 wajib pakai driver adapter (`PrismaPg`) — tidak bisa pakai `new PrismaClient()` langsung.
+  - `session.user` di NextAuth bisa `undefined` saat type check — semua penggunaan sudah pakai optional chaining.
+  - Frontend masih mock data, integrasi ke API menjadi next step.
+- Next: 
+  1. Buat seed script untuk admin user pertama (`prisma/seed.ts`).
+  2. Ganti auth login page dari hardcoded ke API call NextAuth `signIn()`.
+  3. Integrasi frontend Contact page ke `/api/contacts`.
+
 ## 2026-05-30 - Service Request Detail Page — UX Polish
 
 - Area: frontend
@@ -215,3 +309,24 @@ Copy format berikut untuk setiap update:
 	- docs/daily progress/readme.md
 - Notes: The date pill now stays on one line while using the actual date-range text for each filter.
 - Next: Recheck the dashboard spacing in the browser after the label change.
+
+## 2026-06-02 - Reusable Layout Shell Components (Spacing Standardization)
+
+- Area: frontend
+- Summary: Created `PageShell` and `DetailShell` layout wrapper components to standardize page spacing across all dashboard pages. Source of truth is `/dashboard/service-request` (`p-6 space-y-6`). Migrated all index/table pages to `<PageShell>` and all detail/form pages to `<DetailShell maxWidth="...">`. Removed inconsistent `mb-6`, `space-y-5`, and standalone `p-6` root divs.
+- Files:
+  - `src/components/layouts/page-shell.tsx` (new — PageShell + DetailShell)
+  - `src/app/dashboard/service-request/page.tsx`
+  - `src/app/dashboard/service-request/new/page.tsx`
+  - `src/app/dashboard/service-request/[id]/page.tsx`
+  - `src/app/dashboard/contact/page.tsx`
+  - `src/app/dashboard/contact/[id]/page.tsx`
+  - `src/app/dashboard/settings/email-templates/page.tsx`
+  - `src/app/dashboard/settings/email-templates/[id]/page.tsx`
+  - `src/app/dashboard/settings/knowledge/page.tsx`
+  - `src/app/dashboard/settings/knowledge/[id]/page.tsx`
+  - `src/app/dashboard/settings/csat/page.tsx`
+  - `src/app/dashboard/user-management/page.tsx`
+  - `src/app/dashboard/user-management/users/[id]/page.tsx`
+  - `src/app/dashboard/user-management/queue/[id]/page.tsx`
+- Next: Continue roadmap — queue and service request backend integration.

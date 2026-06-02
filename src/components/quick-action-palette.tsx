@@ -55,9 +55,9 @@ export function QuickActionPalette({ theme, onToggleTheme, onLogout }: Props) {
 
   const actions: Action[] = [
     {
-      id: "nav-overview",
-      label: "Overview",
-      description: "Go to dashboard overview",
+      id: "nav-dashboard",
+      label: "Dashboard",
+      description: "Go to dashboard",
       icon: LayoutDashboard,
       group: "Navigate",
       onSelect: () => navigate("/dashboard"),
@@ -68,7 +68,7 @@ export function QuickActionPalette({ theme, onToggleTheme, onLogout }: Props) {
       description: "Manage service requests",
       icon: ClipboardList,
       group: "Navigate",
-      onSelect: () => navigate("/dashboard/service-request"),
+      onSelect: () => navigate("/service-request"),
     },
     {
       id: "nav-user-management",
@@ -76,7 +76,7 @@ export function QuickActionPalette({ theme, onToggleTheme, onLogout }: Props) {
       description: "Manage system users",
       icon: UserCog,
       group: "Navigate",
-      onSelect: () => navigate("/dashboard/user-management"),
+      onSelect: () => navigate("/user-management"),
     },
     {
       id: "nav-contact",
@@ -84,7 +84,7 @@ export function QuickActionPalette({ theme, onToggleTheme, onLogout }: Props) {
       description: "View and manage contacts",
       icon: Users,
       group: "Navigate",
-      onSelect: () => navigate("/dashboard/contact"),
+      onSelect: () => navigate("/contact"),
     },
     {
       id: "nav-csat",
@@ -92,7 +92,7 @@ export function QuickActionPalette({ theme, onToggleTheme, onLogout }: Props) {
       description: "Customer satisfaction settings",
       icon: MessageCircleHeart,
       group: "Settings",
-      onSelect: () => navigate("/dashboard/settings/csat"),
+      onSelect: () => navigate("/settings/csat"),
     },
     {
       id: "nav-knowledge",
@@ -100,7 +100,7 @@ export function QuickActionPalette({ theme, onToggleTheme, onLogout }: Props) {
       description: "Manage knowledge base articles",
       icon: BookOpen,
       group: "Settings",
-      onSelect: () => navigate("/dashboard/settings/knowledge"),
+      onSelect: () => navigate("/settings/knowledge"),
     },
     {
       id: "nav-email-templates",
@@ -108,7 +108,7 @@ export function QuickActionPalette({ theme, onToggleTheme, onLogout }: Props) {
       description: "Configure outgoing email templates",
       icon: Mail,
       group: "Settings",
-      onSelect: () => navigate("/dashboard/settings/email-templates"),
+      onSelect: () => navigate("/settings/email-templates"),
     },
     {
       id: "action-new-ticket",
@@ -116,7 +116,7 @@ export function QuickActionPalette({ theme, onToggleTheme, onLogout }: Props) {
       description: "Create a new service request ticket",
       icon: Plus,
       group: "Actions",
-      onSelect: () => navigate("/dashboard/service-request"),
+      onSelect: () => navigate("/service-request"),
     },
     {
       id: "action-account",
@@ -124,7 +124,7 @@ export function QuickActionPalette({ theme, onToggleTheme, onLogout }: Props) {
       description: "View your account settings",
       icon: User,
       group: "Actions",
-      onSelect: () => navigate("/dashboard/account"),
+      onSelect: () => navigate("/account"),
     },
     {
       id: "action-theme",
