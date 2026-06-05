@@ -17,91 +17,64 @@ import {
   ArrowRight,
   CalendarDays
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfDay, endOfDay, subDays, startOfMonth } from "date-fns";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 import { Button } from "@/components/ui/button";
 
-const periodData = {
-  Today: {
-    dateRange: "May 26, 2026 - May 26, 2026",
-    stats: [
-      { label: "New Tickets", value: "24", icon: Inbox, trend: "+12%", up: true, color: "text-blue-500", bg: "bg-blue-500/10" },
-      { label: "In Progress", value: "18", icon: Clock, trend: "+5%", up: true, color: "text-amber-500", bg: "bg-amber-500/10" },
-      { label: "Resolved", value: "142", icon: CheckCircle2, trend: "+24%", up: true, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-      { label: "Closed", value: "320", icon: XCircle, trend: "-2%", up: false, color: "text-zinc-500", bg: "bg-zinc-500/10" },
-    ],
-    csat: [
-      { icon: Smile, label: "Positive", value: "85%", color: "text-emerald-500", bg: "bg-emerald-500/10", barColor: "bg-emerald-500" },
-      { icon: Meh, label: "Neutral", value: "12%", color: "text-amber-500", bg: "bg-amber-500/10", barColor: "bg-amber-500" },
-      { icon: Frown, label: "Negative", value: "3%", color: "text-primary", bg: "bg-primary/10", barColor: "bg-primary" },
-    ],
-    sla: 12,
-    inSla: 88,
-  },
-  "Last Week": {
-    dateRange: "May 19, 2026 - May 25, 2026",
-    stats: [
-      { label: "New Tickets", value: "156", icon: Inbox, trend: "+8%", up: true, color: "text-blue-500", bg: "bg-blue-500/10" },
-      { label: "In Progress", value: "62", icon: Clock, trend: "+3%", up: true, color: "text-amber-500", bg: "bg-amber-500/10" },
-      { label: "Resolved", value: "438", icon: CheckCircle2, trend: "+17%", up: true, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-      { label: "Closed", value: "711", icon: XCircle, trend: "-1%", up: false, color: "text-zinc-500", bg: "bg-zinc-500/10" },
-    ],
-    csat: [
-      { icon: Smile, label: "Positive", value: "82%", color: "text-emerald-500", bg: "bg-emerald-500/10", barColor: "bg-emerald-500" },
-      { icon: Meh, label: "Neutral", value: "14%", color: "text-amber-500", bg: "bg-amber-500/10", barColor: "bg-amber-500" },
-      { icon: Frown, label: "Negative", value: "4%", color: "text-primary", bg: "bg-primary/10", barColor: "bg-primary" },
-    ],
-    sla: 18,
-    inSla: 82,
-  },
-  "This Month": {
-    dateRange: "May 1, 2026 - May 26, 2026",
-    stats: [
-      { label: "New Tickets", value: "612", icon: Inbox, trend: "+21%", up: true, color: "text-blue-500", bg: "bg-blue-500/10" },
-      { label: "In Progress", value: "238", icon: Clock, trend: "+11%", up: true, color: "text-amber-500", bg: "bg-amber-500/10" },
-      { label: "Resolved", value: "1,984", icon: CheckCircle2, trend: "+29%", up: true, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-      { label: "Closed", value: "3,214", icon: XCircle, trend: "+4%", up: true, color: "text-zinc-500", bg: "bg-zinc-500/10" },
-    ],
-    csat: [
-      { icon: Smile, label: "Positive", value: "88%", color: "text-emerald-500", bg: "bg-emerald-500/10", barColor: "bg-emerald-500" },
-      { icon: Meh, label: "Neutral", value: "9%", color: "text-amber-500", bg: "bg-amber-500/10", barColor: "bg-amber-500" },
-      { icon: Frown, label: "Negative", value: "3%", color: "text-primary", bg: "bg-primary/10", barColor: "bg-primary" },
-    ],
-    sla: 9,
-    inSla: 91,
-  },
-  Custom: {
-    dateRange: "Custom range selected",
-    stats: [
-      { label: "New Tickets", value: "48", icon: Inbox, trend: "+2%", up: true, color: "text-blue-500", bg: "bg-blue-500/10" },
-      { label: "In Progress", value: "21", icon: Clock, trend: "+1%", up: true, color: "text-amber-500", bg: "bg-amber-500/10" },
-      { label: "Resolved", value: "96", icon: CheckCircle2, trend: "+7%", up: true, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-      { label: "Closed", value: "144", icon: XCircle, trend: "0%", up: true, color: "text-zinc-500", bg: "bg-zinc-500/10" },
-    ],
-    csat: [
-      { icon: Smile, label: "Positive", value: "79%", color: "text-emerald-500", bg: "bg-emerald-500/10", barColor: "bg-emerald-500" },
-      { icon: Meh, label: "Neutral", value: "16%", color: "text-amber-500", bg: "bg-amber-500/10", barColor: "bg-amber-500" },
-      { icon: Frown, label: "Negative", value: "5%", color: "text-primary", bg: "bg-primary/10", barColor: "bg-primary" },
-    ],
-    sla: 14,
-    inSla: 86,
-  },
-} as const;
+type DashboardData = {
+  stats: {
+    new: number;
+    in_progress: number;
+    resolved: number;
+    closed: number;
+    newTrend: number;
+    inProgressTrend: number;
+    resolvedTrend: number;
+    closedTrend: number;
+  };
+  csat: {
+    satisfied: number;
+    neutral: number;
+    dissatisfied: number;
+    total: number;
+  };
+  sla: {
+    breached: number;
+    inSla: number;
+    total: number;
+  };
+};
 
 const filterTabs = ["Today", "Last Week", "This Month", "Custom"] as const;
+type FilterTab = (typeof filterTabs)[number];
+
+function getPresetRange(filter: Exclude<FilterTab, "Custom">): { from: Date; to: Date } {
+  const now = new Date();
+  switch (filter) {
+    case "Today":
+      return { from: startOfDay(now), to: endOfDay(now) };
+    case "Last Week":
+      return { from: startOfDay(subDays(now, 7)), to: endOfDay(subDays(now, 1)) };
+    case "This Month":
+      return { from: startOfMonth(now), to: endOfDay(now) };
+  }
+}
 
 export default function DashboardPage() {
-  const [filter, setFilter] = useState<keyof typeof periodData>("Today");
+  const [filter, setFilter] = useState<FilterTab>("Today");
+  const [activeDateRange, setActiveDateRange] = useState<{ from: Date; to: Date }>(() =>
+    getPresetRange("Today")
+  );
   const [showCustomPicker, setShowCustomPicker] = useState(false);
-  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(new Date(2026, 4, 1));
-  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(new Date(2026, 4, 26));
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
   const [selectionStep, setSelectionStep] = useState<"start" | "end">("start");
-  const [startPickerMonth, setStartPickerMonth] = useState<Date>(new Date(2026, 4, 1));
-  const [endPickerMonth, setEndPickerMonth] = useState<Date>(new Date(2026, 4, 26));
+  const [startPickerMonth, setStartPickerMonth] = useState<Date>(new Date());
+  const [endPickerMonth, setEndPickerMonth] = useState<Date>(new Date());
   const pickerContainerRef = useRef<HTMLDivElement>(null);
-  const currentPeriod = periodData[filter];
-  const isCustom = filter === "Custom";
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!showCustomPicker) return;
@@ -114,18 +87,67 @@ export default function DashboardPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showCustomPicker]);
 
-  const customRangeLabel = customStartDate && customEndDate
-    ? `${format(customStartDate, "MMM d, yyyy")} - ${format(customEndDate, "MMM d, yyyy")}`
-    : "Select a date range";
+  const customRangeLabel =
+    customStartDate && customEndDate
+      ? `${format(customStartDate, "MMM d, yyyy")} - ${format(customEndDate, "MMM d, yyyy")}`
+      : "Select a date range";
 
-  const displayedDateRange = isCustom ? customRangeLabel : currentPeriod.dateRange;
+  const displayedDateRange =
+    filter === "Custom"
+      ? customRangeLabel
+      : `${format(activeDateRange.from, "MMM d, yyyy")} - ${format(activeDateRange.to, "MMM d, yyyy")}`;
 
   const applyCustomRange = () => {
     if (customStartDate && customEndDate) {
       setFilter("Custom");
+      setActiveDateRange({ from: startOfDay(customStartDate), to: endOfDay(customEndDate) });
       setShowCustomPicker(false);
     }
   };
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(
+      `/api/dashboard?from=${activeDateRange.from.toISOString()}&to=${activeDateRange.to.toISOString()}`
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => json && setData(json))
+      .finally(() => setLoading(false));
+  }, [activeDateRange]);
+
+  const STAT_CONFIG = [
+    { key: "new" as const, trendKey: "newTrend" as const, label: "New Tickets", icon: Inbox, color: "text-blue-500", bg: "bg-blue-500/10" },
+    { key: "in_progress" as const, trendKey: "inProgressTrend" as const, label: "In Progress", icon: Clock, color: "text-amber-500", bg: "bg-amber-500/10" },
+    { key: "resolved" as const, trendKey: "resolvedTrend" as const, label: "Resolved", icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+    { key: "closed" as const, trendKey: "closedTrend" as const, label: "Closed", icon: XCircle, color: "text-zinc-500", bg: "bg-zinc-500/10" },
+  ];
+
+  const stats = STAT_CONFIG.map((cfg) => {
+    const value = data ? data.stats[cfg.key] : null;
+    const trendVal = data ? data.stats[cfg.trendKey] : null;
+    return {
+      label: cfg.label,
+      icon: cfg.icon,
+      color: cfg.color,
+      bg: cfg.bg,
+      value: value !== null ? value.toLocaleString() : "—",
+      trend: trendVal !== null ? `${trendVal > 0 ? "+" : ""}${trendVal}%` : "—",
+      up: trendVal !== null ? trendVal >= 0 : true,
+    };
+  });
+
+  const csatTotal = data?.csat.total ?? 0;
+  const pct = (n: number) => (csatTotal > 0 ? Math.round((n / csatTotal) * 100) : 0);
+  const csatItems = [
+    { icon: Smile, label: "Positive", value: `${pct(data?.csat.satisfied ?? 0)}%`, color: "text-emerald-500", bg: "bg-emerald-500/10", barColor: "bg-emerald-500" },
+    { icon: Meh, label: "Neutral", value: `${pct(data?.csat.neutral ?? 0)}%`, color: "text-amber-500", bg: "bg-amber-500/10", barColor: "bg-amber-500" },
+    { icon: Frown, label: "Negative", value: `${pct(data?.csat.dissatisfied ?? 0)}%`, color: "text-primary", bg: "bg-primary/10", barColor: "bg-primary" },
+  ];
+
+  const slaBreachedPct = data?.sla.total
+    ? Math.round((data.sla.breached / data.sla.total) * 100)
+    : 0;
+  const slaInSlaPct = 100 - slaBreachedPct;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -155,6 +177,7 @@ export default function DashboardPage() {
                         });
                       } else {
                         setFilter(t);
+                        setActiveDateRange(getPresetRange(t));
                         setShowCustomPicker(false);
                       }
                     }}
@@ -275,8 +298,8 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {currentPeriod.stats.map((stat, i) => (
+      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 transition-opacity ${loading ? "opacity-50" : ""}`}>
+        {stats.map((stat, i) => (
           <div 
             key={stat.label} 
             className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transition-all group animate-rise"
@@ -303,7 +326,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Customer Satisfaction */}
-        <div className="lg:col-span-2 p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 animate-rise" style={{ animationDelay: '400ms' }}>
+        <div className={`lg:col-span-2 p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 animate-rise transition-opacity ${loading ? "opacity-50" : ""}`} style={{ animationDelay: '400ms' }}>
           <div className="flex items-center gap-2 mb-8">
             <div className="size-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
               <Smile className="size-4 text-emerald-500" />
@@ -312,7 +335,7 @@ export default function DashboardPage() {
           </div>
           
           <div className="space-y-8">
-            {currentPeriod.csat.map((item) => (
+            {csatItems.map((item) => (
               <div key={item.label} className="space-y-3 group">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -360,12 +383,12 @@ export default function DashboardPage() {
                 cy="50" 
                 style={{
                   strokeDasharray: "251.2",
-                  strokeDashoffset: (251.2 * (1 - currentPeriod.sla / 100)).toString()
+                  strokeDashoffset: (251.2 * (1 - slaBreachedPct / 100)).toString()
                 }}
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-4xl font-black tracking-tighter text-primary leading-none">{currentPeriod.sla}%</span>
+              <span className="text-4xl font-black tracking-tighter text-primary leading-none">{slaBreachedPct}%</span>
               <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Breached</span>
             </div>
           </div>
@@ -376,7 +399,7 @@ export default function DashboardPage() {
                  <div className="size-3 rounded-full bg-zinc-200 dark:bg-zinc-700" />
                  <span className="text-xs font-bold text-zinc-500">In SLA</span>
                </div>
-                 <span className="text-sm font-black text-zinc-900 dark:text-zinc-100">{currentPeriod.inSla}%</span>
+                 <span className="text-sm font-black text-zinc-900 dark:text-zinc-100">{slaInSlaPct}%</span>
             </div>
           </div>
         </div>

@@ -1,0 +1,10 @@
+            id             | ticketNumber |   status    |         dueDate         |                    csatToken                     
+---------------------------+--------------+-------------+-------------------------+--------------------------------------------------
+ cmpwiafxz0007p6msp6fexhc0 | SR0001       | closed      | 2026-06-03 10:40:06.329 | 
+ cmpwiag9s0009p6msjw8p8kia | SR0002       | in_progress | 2026-06-04 10:40:06.742 | 
+ cmpwlqf9100017umsikmtrbsm | SR0003       | closed      | 2026-06-02 20:16:26.536 | 
+ cmpz9vmfd00017lmsku7nb7jk | SR0004       | resolved    | 2026-06-04 21:07:56.007 | 8af7d22a97f6c50f7668be71ea39ba0d7db57c11efe02bd9
+ cmpzb5s4s000hh8msawtzil0n | SR0005       | new         | 2026-06-04 21:43:49.5   | 
+ cmq0bn7se00072zmsdie3h7lh | SR0006       | resolved    | 2026-06-05 14:45:09.495 | 5dccb690c0ff0d43525df87667515dc06892302019792f05
+(6 rows)
+

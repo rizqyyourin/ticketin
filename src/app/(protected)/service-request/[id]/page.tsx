@@ -26,6 +26,8 @@ import {
   CircleDot,
   ArrowRight,
   Star,
+  FileText,
+  Search,
 } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import {
@@ -39,6 +41,7 @@ import {
   SLA_HOURS,
 } from "@/features/service-request/types";
 import { DetailShell } from "@/components/layouts/page-shell";
+import { MOCK_TEMPLATES, FOLDER_COLORS } from "@/features/email-templates/mock-data";
 
 // ─── Status transitions ───────────────────────────────────────────────────────
 // new         → open | in_progress | closed
@@ -372,6 +375,198 @@ function ChangeStatusModal({
   );
 }
 
+// ─── Template Picker Modal ────────────────────────────────────────────────────
+
+type PickerTemplate = { id: string; name: string; subject: string; body: string; folder?: string };
+
+function renderTemplateVars(text: string, vars: Record<string, string>): string {
+  return Object.entries(vars).reduce(
+    (acc, [key, val]) => acc.replaceAll(`{{${key}}}`, val),
+    text
+  );
+}
+
+function TemplatePickerModal({
+  req,
+  agentName,
+  onClose,
+  onSelect,
+}: {
+  req: ServiceRequestDetail;
+  agentName: string;
+  onClose: () => void;
+  onSelect: (body: string) => void;
+}) {
+  const [templates, setTemplates] = useState<PickerTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [folderFilter, setFolderFilter] = useState("All");
+  const [selected, setSelected] = useState<PickerTemplate | null>(null);
+
+  useEffect(() => {
+    fetch("/api/email-templates")
+      .then((r) => r.json())
+      .then((data: PickerTemplate[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setTemplates(data);
+        } else {
+          // Fallback to built-in mock templates
+          setTemplates(
+            MOCK_TEMPLATES.map((t) => ({ id: t.id, name: t.name, subject: t.subject, body: t.body, folder: t.folder }))
+          );
+        }
+      })
+      .catch(() => {
+        setTemplates(
+          MOCK_TEMPLATES.map((t) => ({ id: t.id, name: t.name, subject: t.subject, body: t.body, folder: t.folder }))
+        );
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const folders = ["All", ...Array.from(new Set(templates.map((t) => t.folder).filter(Boolean) as string[]))];
+
+  const vars: Record<string, string> = {
+    customer_name: req.contact.customerName,
+    ticket_number: req.ticketNumber,
+    ticket_subject: req.subject,
+    agent_name: agentName,
+    priority: req.priority,
+    sla_deadline: formatDateTime(req.dueDate),
+  };
+
+  const filtered = templates.filter((t) => {
+    const q = search.toLowerCase();
+    const matchesSearch = t.name.toLowerCase().includes(q) || t.subject.toLowerCase().includes(q);
+    const matchesFolder = folderFilter === "All" || t.folder === folderFilter;
+    return matchesSearch && matchesFolder;
+  });
+
+  const renderedBody = selected ? renderTemplateVars(selected.body, vars) : "";
+  const renderedSubject = selected ? renderTemplateVars(selected.subject, vars) : "";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 w-full max-w-2xl mx-4 shadow-xl flex flex-col max-h-[82vh] overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <FileText className="size-4 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Use Email Template</h3>
+              <p className="text-xs text-zinc-400 mt-0.5">Select a template to populate the comment</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="size-7 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center transition-colors">
+            <X className="size-4 text-zinc-400" />
+          </button>
+        </div>
+
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          {/* Left: template list */}
+          <div className="w-60 flex-shrink-0 border-r border-zinc-100 dark:border-zinc-800 flex flex-col">
+            <div className="p-3 space-y-2 border-b border-zinc-100 dark:border-zinc-800">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400" />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                />
+              </div>
+              <select
+                value={folderFilter}
+                onChange={(e) => setFolderFilter(e.target.value)}
+                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+              >
+                {folders.map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="size-4 animate-spin text-zinc-400" />
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="p-4 text-center">
+                  <p className="text-xs text-zinc-400">No templates found</p>
+                </div>
+              ) : (
+                filtered.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setSelected(t)}
+                    className={`w-full text-left px-4 py-3 border-b border-zinc-50 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors ${
+                      selected?.id === t.id
+                        ? "bg-primary/5 dark:bg-primary/10 border-l-2 border-l-primary"
+                        : ""
+                    }`}
+                  >
+                    {t.folder && (
+                      <span className={`inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded-md mb-1 ${FOLDER_COLORS[t.folder] ?? "bg-zinc-100 text-zinc-500"}`}>
+                        {t.folder}
+                      </span>
+                    )}
+                    <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate">{t.name}</p>
+                    <p className="text-[10px] text-zinc-400 truncate mt-0.5">{t.subject}</p>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Right: preview */}
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            {selected ? (
+              <>
+                <div className="flex-1 overflow-y-auto p-5 space-y-3">
+                  <div>
+                    <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-1">Subject</p>
+                    <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{renderedSubject}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-1">Body Preview</p>
+                    <div className="bg-zinc-50 dark:bg-zinc-800 rounded-xl p-4">
+                      <pre className="text-xs text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed font-sans">
+                        {renderedBody}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+                <div className="px-5 py-4 border-t border-zinc-100 dark:border-zinc-800 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => { onSelect(renderedBody); onClose(); }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+                  >
+                    <FileText className="size-4" />
+                    Use this template
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8">
+                <FileText className="size-10 text-zinc-200 dark:text-zinc-700" />
+                <p className="text-sm text-zinc-400 text-center">Select a template on the left to preview it</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 // ─── Assign Modal ─────────────────────────────────────────────────────────────
 
 interface AssignPayload {
@@ -568,6 +763,7 @@ export default function ServiceRequestDetailPage() {
   const [commentInput, setCommentInput] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
   const [csatSentAt, setCsatSentAt] = useState<string | null>(null);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
   // Scroll container for comments — auto-scroll to bottom on new messages
   const commentsScrollRef = useRef<HTMLDivElement>(null);
@@ -901,22 +1097,34 @@ export default function ServiceRequestDetailPage() {
                   <div className="size-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                     {currentUserInitial}
                   </div>
-                  <div className="flex-1 relative">
-                    <textarea
-                      rows={3}
-                      value={commentInput}
-                      onChange={(e) => setCommentInput(e.target.value)}
-                      placeholder="Write a comment..."
-                      className="w-full px-4 py-2.5 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all resize-none"
-                    />
-                    <button
-                      onClick={handleSendComment}
-                      disabled={sendingComment || !commentInput.trim()}
-                      className="absolute bottom-3 right-3 px-3 py-1 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1"
-                    >
-                      {sendingComment && <Loader2 className="size-3 animate-spin" />}
-                      Send
-                    </button>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setShowTemplatePicker(true)}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:text-primary hover:border-primary/40 transition-colors"
+                      >
+                        <FileText className="size-3" />
+                        Template
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <textarea
+                        rows={3}
+                        value={commentInput}
+                        onChange={(e) => setCommentInput(e.target.value)}
+                        placeholder="Write a comment..."
+                        className="w-full px-4 py-2.5 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all resize-none"
+                      />
+                      <button
+                        onClick={handleSendComment}
+                        disabled={sendingComment || !commentInput.trim()}
+                        className="absolute bottom-3 right-3 px-3 py-1 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {sendingComment && <Loader2 className="size-3 animate-spin" />}
+                        Send
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1069,6 +1277,16 @@ export default function ServiceRequestDetailPage() {
           saving={savingAssign}
           onClose={() => setShowAssign(false)}
           onConfirm={handleAssign}
+        />
+      )}
+
+      {/* Template Picker Modal */}
+      {showTemplatePicker && req && (
+        <TemplatePickerModal
+          req={req}
+          agentName={session?.user?.name ?? session?.user?.email ?? "Support Agent"}
+          onClose={() => setShowTemplatePicker(false)}
+          onSelect={(body) => setCommentInput(body)}
         />
       )}
     </>

@@ -1,5 +1,38 @@
 # Daily Progress Log
 
+## 2026-06-05 — Feature: Dashboard Real Data Integration
+
+- Area: frontend, backend
+- Summary:
+  1. **`GET /api/dashboard?from=<ISO>&to=<ISO>`** (baru) — query Prisma real: `ServiceRequest.groupBy(status)` untuk stats ticket, `CsatSurvey.groupBy(rating)` untuk CSAT, count SLA breached (dueDate < now AND status not resolved/closed). Trend dihitung vs periode sebelumnya (durasi sama, window prior).
+  2. **Dashboard page** — hapus `periodData` static mock. Tambah `DashboardData` type, `getPresetRange` helper, `activeDateRange` state. `useEffect` fetch API setiap `activeDateRange` berubah. Derived values: `stats[]`, `csatItems[]`, `slaBreachedPct`, `slaInSlaPct`.
+  3. Filter tabs (Today/Last Week/This Month/Custom) sekarang trigger real fetch. Custom range Apply juga trigger fetch. Loading state: opacity-50 saat fetching.
+  4. **Build verified** — `npm run build` pass. Zero errors.
+- Files:
+  - `src/app/api/dashboard/route.ts` (baru)
+  - `src/app/(protected)/dashboard/page.tsx`
+- Notes:
+  - Status bucket: New=`new`, In Progress=`open+in_progress+pending`, Resolved=`resolved`, Closed=`closed`.
+  - SLA breached = ticket dalam periode yg dueDate sudah lewat tapi masih open.
+  - CSAT data berdasarkan `submittedAt` dalam range, bukan `createdAt` ticket.
+- Next: seed data real ke DB untuk verifikasi tampilan dashboard.
+
+## 2026-06-05 — Feature: Template Picker di Comment Tab Service Request
+
+- Area: frontend, backend
+- Summary:
+  1. **`GET /api/email-templates`** (baru) — fetch `EmailTemplate` dari DB (Prisma model sudah ada di schema). Juga expose `POST /api/email-templates` untuk create template baru.
+  2. **`TemplatePickerModal`** — komponen baru di halaman SR detail. Fetch dari `/api/email-templates`; jika DB kosong, fallback ke `MOCK_TEMPLATES`. Split-panel layout: kiri list + search, kanan preview rendered. Variable interpolation: `{{customer_name}}`, `{{ticket_number}}`, `{{ticket_subject}}`, `{{agent_name}}`, `{{priority}}`, `{{sla_deadline}}` di-replace dengan data ticket aktual.
+  3. **Button "Template"** — toolbar di atas textarea comment. Klik → buka TemplatePickerModal. Pilih template → klik "Use this template" → body ter-render masuk ke `commentInput`. Agent bisa edit dulu sebelum Send. Alur send email ke customer tetap sama (via `POST /api/service-requests/:id/comments`).
+  4. **Build verified** — `npm run build` pass. Zero errors.
+- Files:
+  - `src/app/api/email-templates/route.ts` (baru — GET list + POST create)
+  - `src/app/(protected)/service-request/[id]/page.tsx` (tambah TemplatePickerModal + button toolbar)
+- Notes:
+  - Template variables yang tersedia: `{{customer_name}}`, `{{ticket_number}}`, `{{ticket_subject}}`, `{{agent_name}}`, `{{priority}}`, `{{sla_deadline}}`. Variable lain (misal `{{reset_link}}`) tidak di-replace, tetap tampil as-is.
+  - DB EmailTemplate kemungkinan masih kosong — fallback ke MOCK_TEMPLATES agar langsung usable. Buat/seed template real via Settings > Email Templates.
+- Next: Integrasi Settings Email Templates page ke API (ganti localStorage/mock ke DB).
+
 ## 2026-06-05 — Fix: Signup Page Wiring ke Database
 
 - Area: frontend, backend
