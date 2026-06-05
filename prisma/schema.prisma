@@ -145,16 +145,19 @@ enum Title {
 // ─── Service Request ──────────────────────────────────────────────────────────
 
 model ServiceRequest {
-  id           String   @id @default(cuid())
-  ticketNumber String   @unique // e.g. SR0001
+  id           String    @id @default(cuid())
+  ticketNumber String    @unique // e.g. SR0001
   subject      String
-  description  String   @db.Text
+  description  String    @db.Text
   category     String
-  priority     Priority @default(medium)
-  status       Status   @default(open)
+  priority     Priority  @default(medium)
+  status       Status    @default(new)
   dueDate      DateTime
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  csatToken    String?   @unique // unique token for CSAT survey link
+  csatSentAt   DateTime? // when CSAT email was last sent
+  emailThreadId String?  // anchor Message-ID for the email thread
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   contactId  String
   assignedTo String?
@@ -165,6 +168,7 @@ model ServiceRequest {
   queue        Queue?       @relation(fields: [queueId], references: [id])
   comments     Comment[]
   activityLogs ActivityLog[]
+  csatSurvey   CsatSurvey?
 }
 
 enum Priority {
@@ -174,6 +178,7 @@ enum Priority {
 }
 
 enum Status {
+  new
   open
   in_progress
   pending
@@ -182,11 +187,12 @@ enum Status {
 }
 
 model Comment {
-  id        String      @id @default(cuid())
-  content   String      @db.Text
-  authorId  String?     // null = customer comment via email
-  role      CommentRole @default(agent)
-  createdAt DateTime    @default(now())
+  id             String      @id @default(cuid())
+  content        String      @db.Text
+  authorId       String?     // null = customer comment via email
+  role           CommentRole @default(agent)
+  emailMessageId String?     // outbound Message-ID header (for threading)
+  createdAt      DateTime    @default(now())
 
   serviceRequestId String
   serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
@@ -242,11 +248,33 @@ model KnowledgeArticle {
   updatedAt   DateTime @updatedAt
 }
 
+enum CsatRating {
+  dissatisfied
+  neutral
+  satisfied
+}
+
+enum CsatTrigger {
+  every_reply
+  ticket_resolved
+}
+
 model CsatSurvey {
-  id               String   @id @default(cuid())
-  serviceRequestId String   @unique
-  rating           Int      // 1-5
-  comment          String?  @db.Text
-  submittedAt      DateTime @default(now())
+  id               String     @id @default(cuid())
+  serviceRequestId String     @unique
+  rating           CsatRating
+  comment          String?    @db.Text
+  submittedAt      DateTime   @default(now())
+
+  serviceRequest ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+}
+
+model CsatSettings {
+  id        String      @id @default(cuid())
+  enabled   Boolean     @default(true)
+  question  String      @default("How satisfied are you with our support?")
+  thankYou  String      @default("Thank you for your feedback! It helps us improve.")
+  trigger   CsatTrigger @default(ticket_resolved)
+  updatedAt DateTime    @updatedAt
 }
 

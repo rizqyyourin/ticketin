@@ -10,12 +10,38 @@ import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate signup - direct to login
-    router.push("/auth/login");
+    setError(null);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "Registration failed");
+        return;
+      }
+
+      router.push("/auth/login");
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -36,13 +62,32 @@ export default function SignupPage() {
         </div>
 
         <form onSubmit={handleSignup} className="grid gap-6">
+          {error && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
+              {error}
+            </p>
+          )}
           <div className="grid gap-2">
-            <Label htmlFor="full-name">Full Name</Label>
-            <Input id="full-name" placeholder="John Doe" type="text" required />
+            <Label htmlFor="username">Username</Label>
+            <Input
+              id="username"
+              placeholder="johndoe"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+            />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" placeholder="name@company.com" type="email" required />
+            <Input
+              id="email"
+              placeholder="name@company.com"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="password">Password</Label>
@@ -52,6 +97,8 @@ export default function SignupPage() {
                 type={showPassword ? "text" : "password"} 
                 placeholder="••••••••" 
                 className="pr-10"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required 
               />
               <button
@@ -64,9 +111,13 @@ export default function SignupPage() {
             </div>
           </div>
           
-          <Button type="submit" className="h-11 w-full rounded-xl bg-zinc-900 dark:bg-white dark:text-zinc-900 shadow-lg shadow-zinc-200 dark:shadow-none transition-all active:scale-95">
-            Create Account
-            <ArrowRight className="ml-2 h-4 w-4" />
+          <Button
+            type="submit"
+            disabled={loading}
+            className="h-11 w-full rounded-xl bg-zinc-900 dark:bg-white dark:text-zinc-900 shadow-lg shadow-zinc-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-60"
+          >
+            {loading ? "Creating account…" : "Create Account"}
+            {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
           </Button>
         </form>
 

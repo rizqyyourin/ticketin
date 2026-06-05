@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { MessageCircleHeart, Save, Smile, Meh, Frown, Monitor, Mail, CheckCircle2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { MessageCircleHeart, Save, Smile, Meh, Frown, Monitor, Mail, CheckCircle2, Send, Loader2 } from "lucide-react";
 import { PageShell } from "@/components/layouts/page-shell";
 
 type Trigger = "every_reply" | "ticket_resolved";
@@ -228,12 +228,64 @@ export default function CSATSurveyPage() {
   const [question, setQuestion] = useState("How satisfied are you with our support?");
   const [thankYou, setThankYou] = useState("Thank you for your feedback! It helps us improve.");
   const [trigger, setTrigger] = useState<Trigger>("ticket_resolved");
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [previewTab, setPreviewTab] = useState<PreviewTab>("inbox");
+  const [testSending, setTestSending] = useState(false);
+  const [testEmail, setTestEmail] = useState("rizqyyourin6@gmail.com");
+  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  // Load settings from API on mount
+  useEffect(() => {
+    fetch("/api/settings/csat")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.id) {
+          setEnabled(data.enabled);
+          setQuestion(data.question);
+          setThankYou(data.thankYou);
+          setTrigger(data.trigger);
+        }
+      })
+      .catch(() => {/* silently use defaults */});
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await fetch("/api/settings/csat", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled, question, thankYou, trigger }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    setTestSending(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/settings/csat/test-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: testEmail }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTestResult({ ok: true, msg: `Test email sent to ${data.sentTo}` });
+      } else {
+        setTestResult({ ok: false, msg: data.error ?? "Failed to send" });
+      }
+    } catch {
+      setTestResult({ ok: false, msg: "Network error" });
+    } finally {
+      setTestSending(false);
+      setTimeout(() => setTestResult(null), 5000);
+    }
   };
 
   return (
@@ -253,12 +305,13 @@ export default function CSATSurveyPage() {
         </div>
         <button
           onClick={handleSave}
-          className={`cursor-pointer flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+          disabled={saving}
+          className={`cursor-pointer flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 ${
             saved ? "bg-emerald-500 text-white" : "bg-primary text-white hover:bg-primary/90"
           }`}
         >
-          <Save className="size-4" />
-          {saved ? "Saved!" : "Save Changes"}
+          {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+          {saved ? "Saved!" : saving ? "Saving..." : "Save Changes"}
         </button>
       </div>
 
@@ -432,6 +485,35 @@ export default function CSATSurveyPage() {
           <p className="text-[11px] text-zinc-400 text-center">
             Preview updates live as you type · Survey Page is interactive
           </p>
+
+          {/* Test Email */}
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 space-y-3">
+            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Send Test Email</p>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                placeholder="recipient@example.com"
+                className="flex-1 px-3 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+              />
+              <button
+                onClick={handleSendTestEmail}
+                disabled={testSending || !testEmail.trim()}
+                className="cursor-pointer flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-60 shrink-0"
+              >
+                {testSending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                {testSending ? "Sending..." : "Send Test"}
+              </button>
+            </div>
+            {testResult && (
+              <p className={`text-xs font-medium ${
+                testResult.ok ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+              }`}>
+                {testResult.msg}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </PageShell>

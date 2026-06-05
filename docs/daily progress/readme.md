@@ -1,6 +1,76 @@
 # Daily Progress Log
 
-## 2026-06-02 - Contact Module: Full API Integration
+## 2026-06-05 — Fix: Signup Page Wiring ke Database
+
+- Area: frontend, backend
+- Summary: Signup form sebelumnya hanya simulasi (langsung redirect tanpa kirim data). Tidak ada public endpoint untuk registrasi.
+  - Buat `POST /api/auth/register` — public endpoint, tidak butuh session. Validasi input, cek duplikat email/username, hash password bcrypt, simpan ke DB dengan userId auto-generate (USR-XXX).
+  - Update signup page: form fields jadi controlled state (`username`, `email`, `password`). Submit POST ke `/api/auth/register`. Tampil error dari server. Loading state on button. Redirect ke login on success.
+  - Label "Full Name" diganti "Username" sesuai schema DB.
+- Files:
+  - `src/app/api/auth/register/route.ts` (baru)
+  - `src/app/auth/signup/page.tsx`
+- Next action: test register user baru via signup page, cek muncul di DB.
+
+## 2026-06-05 — Bugfix: CSAT Survey Email Threading
+
+- Area: backend
+- Summary: CSAT survey emails (both `every_reply` dan `ticket_resolved` triggers) sekarang masuk ke thread email yang sama, bukan buat thread baru.
+  - **Root cause:** `sendCsatSurveyEmail` di `comments/route.ts` tidak meneruskan `threadId` → email dikirim tanpa `In-Reply-To`/`References` header → Gmail buat thread baru.
+  - **Fix 1** — `comments/route.ts`: tambah import `sendCsatSurveyEmail` dan `randomBytes` (keduanya missing). Pass `threadId: ticket.emailThreadId ?? ticketThreadId(ticket.ticketNumber)` ke CSAT email call.
+  - **`service-requests/[id]/route.ts`** sudah benar — sudah pass `current.emailThreadId` sebagai `threadId`.
+- Files:
+  - `src/app/api/service-requests/[id]/comments/route.ts`
+- Next action: test kirim agent comment → cek CSAT email masuk thread sama di inbox customer.
+
+## 2026-06-02 — Service Request: UX Improvements + Queue Assign + Auto-Escalation
+
+- Area: frontend, backend, database
+- Summary:
+  1. **Schema** — Tambah `new` ke `Status` enum. Default status ServiceRequest berubah dari `open` → `new`. `prisma db push` applied.
+  2. **`features/service-request/types.ts`** — Tambah `new` ke `Status` type. Tambah `QueueWithMembers` + `QueueMemberUser` types.
+  3. **`service-request/new/page.tsx`** — Replace native `<datalist>` dengan custom Combobox (styled, searchable, avatar, close button, keyboard-friendly). Replace "Assign To" flat user dropdown dengan Queue→User cascade picker (pilih queue dulu, baru pilih user dari members queue tersebut). Status auto-set display: `New` (bukan `Open`).
+  4. **`service-request/[id]/page.tsx`** — Tambah `new` ke STATUS_TRANSITIONS dan STATUS_STYLES. Replace AssignModal: step-1 queue picker → step-2 user from queue members, ada opsi "assign to queue only", escalation hint. Track `currentQueueId` state, pass ke modal dan persist ke PATCH.
+  5. **`api/service-requests/[id]/route.ts`** — Rewrite GET: tambah `checkAndEscalate()` — lazy evaluation setiap kali ticket di-fetch. Logic: jika ticket assigned + punya queue + active status + last assignment > 5 menit + assigned user belum comment sejak assignment → auto-escalate ke next member (round-robin by QueueMember.id). Rewrite PATCH: tambah support `queueId` field + queue-only assignment log.
+  6. **Build verified** — `npm run build` pass. Zero errors.
+- Files:
+  - `prisma/schema.prisma` (Status enum + default)
+  - `src/features/service-request/types.ts` (new Status + Queue types)
+  - `src/app/(protected)/service-request/page.tsx` (new status style + sort order)
+  - `src/app/(protected)/service-request/new/page.tsx` (custom combobox + queue-user assign)
+  - `src/app/(protected)/service-request/[id]/page.tsx` (new status + queue assign modal)
+  - `src/app/api/service-requests/[id]/route.ts` (escalation logic + queueId PATCH)
+- Escalation notes:
+  - Escalation is lazy (triggered on ticket fetch, not cron). No extra infra needed.
+  - Queue order: `QueueMember.id` ascending (creation order).
+  - After last member: wraps around to first (round-robin).
+  - Condition: no comment from assigned user since last assignment activity log.
+- Next: Dashboard integration / Roles & Permission.
+
+
+
+- Area: frontend, backend, docs
+- Summary:
+  1. **`features/service-request/types.ts`** — Baru. Semua shared types dari shape API nyata: `ServiceRequestDetail`, `ServiceRequestListItem`, `SRComment`, `SRActivityLog`, `SRAssignedUser`, `Priority`, `Status`, `SLA_HOURS`. Pisah dari mock-data.ts.
+  2. **`service-request/page.tsx`** — Rewrite. Hapus `ALL_REQUESTS` + localStorage. Fetch dari `GET /api/service-requests`. Loading skeleton (6 rows animate-pulse). Error banner. Field mapping: `contact.customerName` untuk kolom customer, `contact.email` untuk sub-label. Sort + infinite scroll tetap client-side.
+  3. **`service-request/new/page.tsx`** — Rewrite. Fetch `GET /api/contacts` untuk datalist customer (Option A: select existing). Fetch `GET /api/users` untuk dropdown Assign To. Validasi: customer harus dipilih dari contacts existing (jika tidak ada → hint link ke `/contact`). Email auto-fill dari contact. Submit `POST /api/service-requests` dengan `contactId`. Redirect ke `/:id` setelah sukses.
+  4. **`service-request/[id]/page.tsx`** — Rewrite. Fetch `GET /api/service-requests/:id` on mount. Change Status: `PATCH /api/service-requests/:id` dengan `{ status }` + optimistic activity log append. Assign: fetch `GET /api/users` → `PATCH /api/service-requests/:id` dengan `{ assignedTo: userId }`. Add Comment: `POST /api/service-requests/:id/comments`. Loading spinner + error state semua aksi.
+  5. **`api/service-requests/[id]/route.ts`** — Fix PATCH: lookup username dari DB sebelum tulis activity log assignment (sebelumnya: "Assigned to user clx..." → sekarang: "Assigned to rizky.a").
+  6. **`docs/api documentation/service-request.md`** — Baru. Dokumentasi lengkap: create, update status, assign, add comment. Sequence diagram, ERD, status lifecycle, SLA table, edge cases.
+  7. **Build verified** — `npm run build` sukses. `/service-request` (static), `/service-request/[id]` (dynamic), `/service-request/new` (static). Zero TypeScript errors.
+- Files:
+  - `src/features/service-request/types.ts` (new — API types)
+  - `src/app/(protected)/service-request/page.tsx` (rewrite — API integration)
+  - `src/app/(protected)/service-request/new/page.tsx` (rewrite — API integration)
+  - `src/app/(protected)/service-request/[id]/page.tsx` (rewrite — API integration)
+  - `src/app/api/service-requests/[id]/route.ts` (fix PATCH assign log label)
+  - `docs/api documentation/service-request.md` (new — full API spec)
+- Notes:
+  - Mock data (`mock-data.ts`) dipertahankan untuk kompatibilitas — tidak ada import aktif ke halaman SR lagi. Bisa dihapus di cleanup task berikutnya.
+  - Customer picker di form baru: harus pilih dari existing contacts. Jika customer baru → buat di `/contact` dulu.
+- Next: Dashboard integration (replace mock metrics dengan data real dari `/api/service-requests`).
+
+
 
 - Area: frontend, backend, database
 - Summary:

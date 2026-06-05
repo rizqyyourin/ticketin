@@ -17,42 +17,23 @@ import {
   Calendar,
 } from "lucide-react";
 import {
-  ALL_REQUESTS,
   type Priority,
   type Status,
-  type ServiceRequest,
-} from "@/features/service-request/mock-data";
-import { getLocalItems } from "@/lib/local-store";
+  type ServiceRequestListItem,
+} from "@/features/service-request/types";
 import { PageShell } from "@/components/layouts/page-shell";
-
-function reviveSR(raw: unknown[]): ServiceRequest[] {
-  return (raw as Array<Record<string, unknown>>).map((r) => ({
-    ...r,
-    createdAt: new Date(r.createdAt as string),
-    updatedAt: new Date(r.updatedAt as string),
-    dueDate: new Date(r.dueDate as string),
-    activityLog: ((r.activityLog ?? []) as Array<Record<string, unknown>>).map((a) => ({
-      ...a,
-      createdAt: new Date(a.createdAt as string),
-    })),
-    comments: ((r.comments ?? []) as Array<Record<string, unknown>>).map((c) => ({
-      ...c,
-      createdAt: new Date(c.createdAt as string),
-    })),
-  })) as ServiceRequest[];
-}
 
 type SortField = "ticketNumber" | "customerName" | "category" | "priority" | "status" | "dueDate";
 type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 15;
 
-function isBreached(dueDate: Date): boolean {
-  return new Date() > dueDate;
+function isBreached(dueDate: string): boolean {
+  return new Date() > new Date(dueDate);
 }
 
-function formatDueDate(date: Date) {
-  return date.toLocaleString("id-ID", {
+function formatDueDate(dateStr: string) {
+  return new Date(dateStr).toLocaleString("id-ID", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -78,6 +59,10 @@ const PRIORITY_STYLES: Record<Priority, { badge: string; label: string }> = {
 };
 
 const STATUS_STYLES: Record<Status, { badge: string; label: string }> = {
+  new: {
+    badge: "bg-sky-500/10 text-sky-500 border border-sky-500/20",
+    label: "New",
+  },
   open: {
     badge: "bg-blue-500/10 text-blue-500 border border-blue-500/20",
     label: "Open",
@@ -107,19 +92,45 @@ function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: 
     : <ChevronDown className="size-3.5 text-primary" />;
 }
 
+function SkeletonRow() {
+  return (
+    <tr className="animate-pulse">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <td key={i} className="px-4 py-3.5">
+          <div className="h-4 bg-zinc-200 dark:bg-zinc-700 rounded-lg w-24" />
+        </td>
+      ))}
+    </tr>
+  );
+}
+
 export default function ServiceRequestPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>("ticketNumber");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const [requests, setRequests] = useState<ServiceRequest[]>([...ALL_REQUESTS]);
+  const [requests, setRequests] = useState<ServiceRequestListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const loaderRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const local = reviveSR(getLocalItems("sr"));
-    if (local.length > 0) setRequests([...local, ...ALL_REQUESTS]);
+    setLoading(true);
+    setError(null);
+    fetch("/api/service-requests")
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data: ServiceRequestListItem[]) => {
+        setRequests(data);
+      })
+      .catch((err) => {
+        setError(err.message ?? "Failed to load service requests");
+      })
+      .finally(() => setLoading(false));
   }, []);
-  const loaderRef = useRef<HTMLDivElement>(null);
 
   const handleSort = (field: SortField) => {
     if (field === sortField) {
@@ -132,14 +143,14 @@ export default function ServiceRequestPage() {
   };
 
   const PRIORITY_ORDER: Record<Priority, number> = { high: 0, medium: 1, low: 2 };
-  const STATUS_ORDER: Record<Status, number> = { open: 0, in_progress: 1, pending: 2, resolved: 3, closed: 4 };
+  const STATUS_ORDER: Record<Status, number> = { new: 0, open: 1, in_progress: 2, pending: 3, resolved: 4, closed: 5 };
 
   const filtered = requests
     .filter((r) => {
       const q = search.toLowerCase();
       return (
         r.ticketNumber.toLowerCase().includes(q) ||
-        r.customerName.toLowerCase().includes(q) ||
+        r.contact.customerName.toLowerCase().includes(q) ||
         r.subject.toLowerCase().includes(q) ||
         r.category.toLowerCase().includes(q) ||
         r.priority.toLowerCase().includes(q) ||
@@ -153,7 +164,7 @@ export default function ServiceRequestPage() {
           cmp = a.ticketNumber.localeCompare(b.ticketNumber);
           break;
         case "customerName":
-          cmp = a.customerName.localeCompare(b.customerName);
+          cmp = a.contact.customerName.localeCompare(b.contact.customerName);
           break;
         case "category":
           cmp = a.category.localeCompare(b.category);
@@ -165,7 +176,7 @@ export default function ServiceRequestPage() {
           cmp = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
           break;
         case "dueDate":
-          cmp = a.dueDate.getTime() - b.dueDate.getTime();
+          cmp = new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
           break;
       }
       return sortDir === "asc" ? cmp : -cmp;
@@ -228,9 +239,17 @@ export default function ServiceRequestPage() {
             />
           </div>
           <span className="text-xs text-zinc-400 ml-auto">
-            {filtered.length} result{filtered.length !== 1 ? "s" : ""}
+            {loading ? "Loading..." : `${filtered.length} result${filtered.length !== 1 ? "s" : ""}`}
           </span>
         </div>
+
+        {/* Error */}
+        {error && (
+          <div className="px-4 py-3 bg-red-50 dark:bg-red-500/10 border-b border-red-100 dark:border-red-500/20 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+            <AlertTriangle className="size-4 flex-shrink-0" />
+            {error}
+          </div>
+        )}
 
         {/* Table */}
         <div className="overflow-x-auto">
@@ -282,10 +301,12 @@ export default function ServiceRequestPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {filtered.length === 0 ? (
+              {loading ? (
+                Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center text-sm text-zinc-400">
-                    No service requests found.
+                    {error ? "Failed to load data." : "No service requests found."}
                   </td>
                 </tr>
               ) : (
@@ -310,7 +331,7 @@ export default function ServiceRequestPage() {
                       <td className="px-4 py-3.5">
                         <div>
                           <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                            {req.customerName}
+                            {req.contact.customerName}
                           </p>
                           <p className="text-xs text-zinc-400 truncate max-w-[180px]">{req.subject}</p>
                         </div>
@@ -362,7 +383,7 @@ export default function ServiceRequestPage() {
         {/* Infinite scroll sentinel + footer */}
         <div ref={loaderRef} className="px-4 py-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
           <span className="text-xs text-zinc-400">
-            Showing {visible.length} of {filtered.length} requests
+            {loading ? "Loading..." : `Showing ${visible.length} of ${filtered.length} requests`}
           </span>
           {hasMore && (
             <span className="text-xs text-zinc-400 animate-pulse">Loading more...</span>
