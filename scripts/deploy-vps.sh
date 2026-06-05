@@ -52,5 +52,5 @@ fi
 pm2 save
 
 echo "[$(date -Iseconds)] Running local health check"
-curl --fail --silent --show-error --retry 10 --retry-delay 2 http://127.0.0.1:3001/ >/dev/null
+curl --fail --silent --show-error --retry 15 --retry-delay 2 --retry-connrefused http://127.0.0.1:3001/ >/dev/null
 echo "[$(date -Iseconds)] Deploy complete for '$PM2_APP_NAME'."
