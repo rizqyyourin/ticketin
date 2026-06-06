@@ -1,49 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  BookOpen,
-  Save,
-  Archive,
-  Globe,
-  FileText,
-  ChevronDown,
-  X,
-  Check,
-  AlertTriangle,
-  Clock,
-  User,
+  BookOpen, Save, Archive, Globe, FileText,
+  ChevronDown, X, Check, AlertTriangle, Clock, User, Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { DetailShell } from "@/components/layouts/page-shell";
 import {
-  MOCK_ARTICLES,
+  type KnowledgeArticle,
+  type KnowledgeStatus,
+  STATUS_STYLES,
   ARTICLE_TYPES,
   TICKET_TYPES,
-  STATUS_STYLES,
-  type Article,
-  type ArticleStatus,
-} from "@/features/knowledge/mock-data";
-import { addLocalItem, getLocalItems } from "@/lib/local-store";
-import { DetailShell } from "@/components/layouts/page-shell";
+} from "@/features/knowledge/types";
 
 // ─── Confirm Modal ────────────────────────────────────────────────────────────
 
 function ConfirmModal({
-  title,
-  message,
-  confirmLabel,
-  confirmClass,
-  onClose,
-  onConfirm,
+  title, message, confirmLabel, confirmClass, onClose, onConfirm,
 }: {
-  title: string;
-  message: string;
-  confirmLabel: string;
-  confirmClass: string;
-  onClose: () => void;
-  onConfirm: () => void;
+  title: string; message: string; confirmLabel: string;
+  confirmClass: string; onClose: () => void; onConfirm: () => void;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -71,16 +51,8 @@ function ConfirmModal({
 
 // ─── Select Field ─────────────────────────────────────────────────────────────
 
-function SelectField({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: string[];
-  onChange: (v: string) => void;
+function SelectField({ label, value, options, onChange }: {
+  label: string; value: string; options: string[]; onChange: (v: string) => void;
 }) {
   return (
     <div className="space-y-1.5">
@@ -91,9 +63,7 @@ function SelectField({
           onChange={(e) => onChange(e.target.value)}
           className="w-full appearance-none px-3 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all pr-8"
         >
-          {options.map((o) => (
-            <option key={o} value={o}>{o}</option>
-          ))}
+          {options.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400 pointer-events-none" />
       </div>
@@ -101,7 +71,7 @@ function SelectField({
   );
 }
 
-// ─── New Article Form (id === "new") ──────────────────────────────────────────
+// ─── New Article Form ─────────────────────────────────────────────────────────
 
 function NewArticleForm() {
   const router = useRouter();
@@ -109,38 +79,49 @@ function NewArticleForm() {
   const [type, setType] = useState(ARTICLE_TYPES[0]);
   const [ticketType, setTicketType] = useState(TICKET_TYPES[0]);
   const [content, setContent] = useState("");
-  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSave = (publish: boolean) => {
-    const today = new Date().toISOString().split("T")[0];
-    const existingArticles = [...getLocalItems<Article>("articles"), ...MOCK_ARTICLES];
-    const nextNum = existingArticles.length + 1;
-    addLocalItem<Article>("articles", {
-      id: `new-${Date.now()}`,
-      articleId: `ART${String(nextNum).padStart(3, "0")}`,
-      title: title.trim() || "Untitled",
-      type,
-      ticketType,
-      content,
-      status: (publish ? "published" : "draft") as ArticleStatus,
-      createdAt: today,
-      updatedAt: today,
-      author: "Admin",
-    });
-    setSaved(true);
-    setTimeout(() => {
+  const handleSave = async (publish: boolean) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/knowledge-articles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim() || "Untitled",
+          type,
+          ticketType,
+          content,
+          status: publish ? "published" : "draft",
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Failed to save");
+      }
       router.push("/settings/knowledge");
-    }, 800);
+    } catch (e) {
+      setError((e as Error).message);
+      setSaving(false);
+    }
   };
 
   return (
-    <DetailShell >
+    <DetailShell>
       <Breadcrumb
         items={[
           { label: "Knowledge Management", href: "/settings/knowledge" },
           { label: "New Article" },
         ]}
       />
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-500/10 dark:border-red-500/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+          {error}
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
         <div className="flex items-center gap-3">
@@ -155,19 +136,19 @@ function NewArticleForm() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleSave(false)}
-            disabled={saved}
+            disabled={saving}
             className="cursor-pointer flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-60"
           >
-            <Save className="size-4" />
+            {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
             Save Draft
           </button>
           <button
             onClick={() => handleSave(true)}
-            disabled={saved || !title.trim()}
+            disabled={saving || !title.trim()}
             className="cursor-pointer flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition-colors disabled:opacity-60"
           >
-            {saved ? <Check className="size-4" /> : <Globe className="size-4" />}
-            {saved ? "Saved!" : "Publish"}
+            {saving ? <Loader2 className="size-4 animate-spin" /> : <Globe className="size-4" />}
+            Publish
           </button>
         </div>
       </div>
@@ -215,66 +196,142 @@ function NewArticleForm() {
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ─── Edit Article Form ────────────────────────────────────────────────────────
 
-export default function KnowledgeArticlePage() {
-  const params = useParams();
+function EditArticleForm({ id }: { id: string }) {
   const router = useRouter();
-  const rawId = params?.id;
-  const id = Array.isArray(rawId) ? rawId[0] : rawId;
-
-  if (id === "new") return <NewArticleForm />;
-
-  const allArticles = [...getLocalItems<Article>("articles"), ...MOCK_ARTICLES];
-  const initialArticle = allArticles.find((a) => a.id === id);
-  const [article, setArticle] = useState<Article | undefined>(initialArticle);
+  const [article, setArticle] = useState<KnowledgeArticle | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"archive" | "delete" | null>(null);
 
-  if (!article) {
+  // ── Fetch article ──────────────────────────────────────────────────────────
+
+  const fetchArticle = useCallback(async () => {
+    setLoading(true);
+    setFetchError(null);
+    try {
+      const res = await fetch(`/api/knowledge-articles/${id}`);
+      if (!res.ok) throw new Error("Article not found");
+      setArticle(await res.json());
+    } catch (e) {
+      setFetchError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { fetchArticle(); }, [fetchArticle]);
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+
+  const handleSave = async () => {
+    if (!article) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const res = await fetch(`/api/knowledge-articles/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: article.title,
+          content: article.content,
+          type: article.type,
+          ticketType: article.ticketType,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2000);
+    } catch (e) {
+      setSaveError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleStatusChange = async (status: KnowledgeStatus) => {
+    if (!article) return;
+    try {
+      const res = await fetch(`/api/knowledge-articles/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error("Failed to update status");
+      const updated = await res.json();
+      setArticle(updated);
+    } catch (e) {
+      setSaveError((e as Error).message);
+    }
+  };
+
+  const handleArchive = async () => {
+    setConfirmAction(null);
+    await handleStatusChange("archived");
+  };
+
+  const handlePublish = async () => {
+    await handleStatusChange("published");
+  };
+
+  const handleDelete = async () => {
+    setConfirmAction(null);
+    try {
+      const res = await fetch(`/api/knowledge-articles/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+      router.push("/settings/knowledge");
+    } catch (e) {
+      setSaveError((e as Error).message);
+    }
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  if (loading) {
     return (
-      <div className="p-6 flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <BookOpen className="size-12 text-zinc-300" />
-        <p className="text-zinc-500 text-sm">Article not found.</p>
-        <Link href="/settings/knowledge" className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors">
-          Back to Knowledge Management
-        </Link>
-      </div>
+      <DetailShell>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="size-8 text-zinc-300 animate-spin" />
+        </div>
+      </DetailShell>
+    );
+  }
+
+  if (fetchError || !article) {
+    return (
+      <DetailShell>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <BookOpen className="size-12 text-zinc-300" />
+          <p className="text-zinc-500 text-sm">{fetchError ?? "Article not found."}</p>
+          <Link href="/settings/knowledge" className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors">
+            Back to Knowledge Management
+          </Link>
+        </div>
+      </DetailShell>
     );
   }
 
   const statusStyle = STATUS_STYLES[article.status];
 
-  const handleSave = () => {
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2000);
-  };
-
-  const handlePublish = () => {
-    setArticle((prev) => prev ? { ...prev, status: "published" as ArticleStatus } : prev);
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2000);
-  };
-
-  const handleArchive = () => {
-    setArticle((prev) => prev ? { ...prev, status: "archived" as ArticleStatus } : prev);
-    setConfirmAction(null);
-  };
-
-  const handleDelete = () => {
-    setConfirmAction(null);
-    router.push("/settings/knowledge");
-  };
-
   return (
     <>
-      <DetailShell >
+      <DetailShell>
         <Breadcrumb
           items={[
             { label: "Knowledge Management", href: "/settings/knowledge" },
             { label: article.articleId },
           ]}
         />
+
+        {saveError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-500/10 dark:border-red-500/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+            {saveError}
+          </div>
+        )}
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-start gap-4 justify-between">
@@ -298,8 +355,7 @@ export default function KnowledgeArticlePage() {
                 onClick={handlePublish}
                 className="cursor-pointer flex items-center gap-2 px-3 py-2 rounded-xl border border-emerald-200 dark:border-emerald-800/40 text-sm font-medium text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
               >
-                <Globe className="size-4" />
-                Publish
+                <Globe className="size-4" /> Publish
               </button>
             )}
             {article.status !== "archived" && (
@@ -307,30 +363,28 @@ export default function KnowledgeArticlePage() {
                 onClick={() => setConfirmAction("archive")}
                 className="cursor-pointer flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
               >
-                <Archive className="size-4" />
-                Archive
+                <Archive className="size-4" /> Archive
               </button>
             )}
             <button
               onClick={handleSave}
-              className="cursor-pointer flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+              disabled={saving}
+              className="cursor-pointer flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
             >
-              {isSaved ? <Check className="size-4" /> : <Save className="size-4" />}
-              {isSaved ? "Saved!" : "Save"}
+              {saving ? <Loader2 className="size-4 animate-spin" /> : isSaved ? <Check className="size-4" /> : <Save className="size-4" />}
+              {saving ? "Saving..." : isSaved ? "Saved!" : "Save"}
             </button>
             <button
               onClick={() => setConfirmAction("delete")}
               className="cursor-pointer flex items-center gap-2 px-3 py-2 rounded-xl border border-red-200 dark:border-red-800/40 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
             >
-              <X className="size-4" />
-              Delete
+              <X className="size-4" /> Delete
             </button>
           </div>
         </div>
 
         {/* Main grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
           {/* Editor */}
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-5 space-y-4">
@@ -387,7 +441,9 @@ export default function KnowledgeArticlePage() {
                 <User className="size-4 text-zinc-400 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-xs text-zinc-400">Author</p>
-                  <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{article.author}</p>
+                  <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                    {article.author?.username ?? "—"}
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-2.5">
@@ -435,4 +491,15 @@ export default function KnowledgeArticlePage() {
       )}
     </>
   );
+}
+
+// ─── Page Entry ───────────────────────────────────────────────────────────────
+
+export default function KnowledgeArticlePage() {
+  const params = useParams();
+  const rawId = params?.id;
+  const id = Array.isArray(rawId) ? rawId[0] : rawId ?? "";
+
+  if (id === "new") return <NewArticleForm />;
+  return <EditArticleForm id={id} />;
 }

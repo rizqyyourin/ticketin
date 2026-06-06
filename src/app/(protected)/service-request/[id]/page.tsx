@@ -28,6 +28,8 @@ import {
   Star,
   FileText,
   Search,
+  BookOpen,
+  ExternalLink,
 } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import {
@@ -101,12 +103,12 @@ const STATUS_CARD: Record<Status, {
   iconColor: string;     // icon color
   danger?: boolean;
 }> = {
-  new:         { icon: <CircleDot className="size-4" />,    accent: "border-sky-500/30 bg-sky-500/5",      iconColor: "text-sky-500" },
-  open:        { icon: <ArrowRight className="size-4" />,   accent: "border-blue-500/30 bg-blue-500/5",    iconColor: "text-blue-500" },
-  in_progress: { icon: <Play className="size-4" />,         accent: "border-violet-500/30 bg-violet-500/5", iconColor: "text-violet-500" },
-  pending:     { icon: <Pause className="size-4" />,        accent: "border-amber-500/30 bg-amber-500/5",  iconColor: "text-amber-500" },
-  resolved:    { icon: <CheckCircle2 className="size-4" />, accent: "border-emerald-500/30 bg-emerald-500/5", iconColor: "text-emerald-500" },
-  closed:      { icon: <Archive className="size-4" />,      accent: "border-zinc-400/30 bg-zinc-500/5",    iconColor: "text-zinc-500", danger: true },
+  new: { icon: <CircleDot className="size-4" />, accent: "border-sky-500/30 bg-sky-500/5", iconColor: "text-sky-500" },
+  open: { icon: <ArrowRight className="size-4" />, accent: "border-blue-500/30 bg-blue-500/5", iconColor: "text-blue-500" },
+  in_progress: { icon: <Play className="size-4" />, accent: "border-violet-500/30 bg-violet-500/5", iconColor: "text-violet-500" },
+  pending: { icon: <Pause className="size-4" />, accent: "border-amber-500/30 bg-amber-500/5", iconColor: "text-amber-500" },
+  resolved: { icon: <CheckCircle2 className="size-4" />, accent: "border-emerald-500/30 bg-emerald-500/5", iconColor: "text-emerald-500" },
+  closed: { icon: <Archive className="size-4" />, accent: "border-zinc-400/30 bg-zinc-500/5", iconColor: "text-zinc-500", danger: true },
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -178,11 +180,10 @@ function CommentBubble({ comment, customerName }: { comment: SRComment; customer
           <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{displayName}</span>
           <span className="text-xs text-zinc-400">{formatDateTime(comment.createdAt)}</span>
         </div>
-        <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words ${
-          isAgent
+        <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words ${isAgent
             ? "bg-primary/10 text-zinc-800 dark:text-zinc-200 rounded-tl-sm"
             : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-tr-sm"
-        }`}>
+          }`}>
           {comment.content}
         </div>
       </div>
@@ -505,11 +506,10 @@ function TemplatePickerModal({
                     key={t.id}
                     type="button"
                     onClick={() => setSelected(t)}
-                    className={`w-full text-left px-4 py-3 border-b border-zinc-50 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors ${
-                      selected?.id === t.id
+                    className={`w-full text-left px-4 py-3 border-b border-zinc-50 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors ${selected?.id === t.id
                         ? "bg-primary/5 dark:bg-primary/10 border-l-2 border-l-primary"
                         : ""
-                    }`}
+                      }`}
                   >
                     {t.folder && (
                       <span className={`inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded-md mb-1 ${FOLDER_COLORS[t.folder] ?? "bg-zinc-100 text-zinc-500"}`}>
@@ -731,6 +731,232 @@ function AssignModal({
         </div>
       </div>
     </div>
+  );
+}
+
+
+// ─── Knowledge Widget ─────────────────────────────────────────────────────────
+
+interface KnowledgeArticleItem {
+  id: string;
+  articleId: string;
+  title: string;
+  type: string;
+  content: string;
+  author: { username: string } | null;
+  updatedAt: string;
+}
+
+const TYPE_BADGE: Record<string, string> = {
+  "How-To Guide": "bg-blue-500/10 text-blue-500",
+  "FAQ": "bg-violet-500/10 text-violet-500",
+  "Troubleshooting": "bg-amber-500/10 text-amber-600",
+  "Tutorial": "bg-emerald-500/10 text-emerald-600",
+  "Policy": "bg-rose-500/10 text-rose-500",
+  "Reference": "bg-zinc-500/10 text-zinc-500",
+};
+
+function ArticleReaderModal({
+  article,
+  onClose,
+}: {
+  article: KnowledgeArticleItem;
+  onClose: () => void;
+}) {
+  const renderContent = (text: string) => {
+    return text.split("\n").map((line, i) => {
+      if (line.startsWith("## ")) {
+        return <h2 key={i} className="text-base font-bold text-zinc-900 dark:text-zinc-100 mt-4 mb-2 first:mt-0">{line.slice(3)}</h2>;
+      }
+      if (line.startsWith("### ")) {
+        return <h3 key={i} className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mt-3 mb-1">{line.slice(4)}</h3>;
+      }
+      if (line.startsWith("- ") || line.startsWith("* ")) {
+        return (
+          <li key={i} className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed ml-4 list-disc">
+            {line.slice(2).replace(/\*\*(.*?)\*\*/g, "$1")}
+          </li>
+        );
+      }
+      if (/^\d+\./.test(line)) {
+        return (
+          <li key={i} className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed ml-4 list-decimal">
+            {line.replace(/^\d+\.\s*/, "").replace(/\*\*(.*?)\*\*/g, "$1")}
+          </li>
+        );
+      }
+      if (line.trim() === "") return <div key={i} className="h-2" />;
+      const parts = line.split(/(\*\*.*?\*\*)/g);
+      return (
+        <p key={i} className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+          {parts.map((part, j) =>
+            part.startsWith("**") && part.endsWith("**")
+              ? <strong key={j} className="font-semibold text-zinc-800 dark:text-zinc-200">{part.slice(2, -2)}</strong>
+              : part
+          )}
+        </p>
+      );
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 w-full max-w-lg mx-4 shadow-2xl flex flex-col max-h-[82vh] overflow-hidden">
+        <div className="flex items-start justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0">
+          <div className="flex items-start gap-3">
+            <div className="size-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <BookOpen className="size-4 text-primary" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="font-mono text-[10px] font-bold text-primary">{article.articleId}</span>
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${TYPE_BADGE[article.type] ?? "bg-zinc-100 text-zinc-500"}`}>
+                  {article.type}
+                </span>
+              </div>
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">{article.title}</h3>
+              {article.author && (
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  by {article.author.username} &middot; updated {new Date(article.updatedAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+                </p>
+              )}
+            </div>
+          </div>
+          <button onClick={onClose} className="size-7 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center transition-colors flex-shrink-0">
+            <X className="size-4 text-zinc-400" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-1">
+          {renderContent(article.content)}
+        </div>
+        <div className="px-5 py-3 border-t border-zinc-100 dark:border-zinc-800 flex-shrink-0">
+          <a
+            href={`/settings/knowledge/${article.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs text-primary font-medium hover:underline"
+          >
+            <ExternalLink className="size-3" />
+            View full article in Knowledge Base
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KnowledgeWidget({ category }: { category: string }) {
+  const [open, setOpen] = useState(false);
+  const [articles, setArticles] = useState<KnowledgeArticleItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<KnowledgeArticleItem | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/knowledge-articles?ticketType=${encodeURIComponent(category)}&status=published`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: KnowledgeArticleItem[]) => setArticles(Array.isArray(data) ? data : []))
+      .catch(() => setArticles([]))
+      .finally(() => setLoading(false));
+  }, [category]);
+
+  return (
+    <>
+      {/* Floating Vertical Button */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={`fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 border-r-0 py-4 px-2.5 rounded-l-xl shadow-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all flex flex-col items-center gap-3 ${open ? "translate-x-full opacity-0" : "translate-x-0 opacity-100"}`}
+      >
+        <BookOpen className="size-4 text-primary" />
+        <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 tracking-wide" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+          Related Articles
+        </span>
+        {!loading && articles.length > 0 && (
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-primary/10 text-primary">
+            {articles.length}
+          </span>
+        )}
+      </button>
+
+      {/* Backdrop to close when clicking outside */}
+      {open && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setOpen(false)} 
+        />
+      )}
+
+      {/* Right Floating Panel */}
+      <div className={`fixed top-24 bottom-6 right-6 w-[calc(100%-3rem)] sm:w-96 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-50 flex flex-col transform transition-all duration-300 ease-in-out origin-right ${open ? "scale-100 opacity-100" : "scale-95 opacity-0 pointer-events-none"}`}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <BookOpen className="size-4 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Related Articles</h2>
+              <p className="text-xs text-zinc-400 mt-0.5">{category}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="size-7 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center transition-colors"
+          >
+            <X className="size-4 text-zinc-400" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {loading ? (
+              <div className="px-5 py-8 flex justify-center">
+                <Loader2 className="size-5 animate-spin text-zinc-300" />
+              </div>
+            ) : articles.length === 0 ? (
+              <div className="px-5 py-10 flex flex-col items-center gap-3">
+                <BookOpen className="size-10 text-zinc-200 dark:text-zinc-700" />
+                <p className="text-sm text-zinc-400 text-center">
+                  No articles found for <br/><span className="font-medium text-zinc-500">&ldquo;{category}&rdquo;</span>
+                </p>
+              </div>
+            ) : (
+              articles.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => setSelected(a)}
+                  className="w-full text-left px-5 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="size-8 rounded-xl bg-primary/5 flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-primary/10 transition-colors">
+                      <FileText className="size-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 leading-snug group-hover:text-primary transition-colors">
+                        {a.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${TYPE_BADGE[a.type] ?? "bg-zinc-100 text-zinc-500"}`}>
+                          {a.type}
+                        </span>
+                        <span className="text-[10px] font-mono text-zinc-400">{a.articleId}</span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      {selected && (
+        <ArticleReaderModal article={selected} onClose={() => setSelected(null)} />
+      )}
+    </>
   );
 }
 
@@ -1254,10 +1480,12 @@ export default function ServiceRequestDetailPage() {
                 )}
               </div>
             </div>
-
           </div>
         </div>
       </DetailShell>
+
+      {/* Knowledge Base Widget (Floating Sidebar) */}
+      {req?.category && <KnowledgeWidget category={req.category} />}
 
       {/* Change Status Modal */}
       {showChangeStatus && (

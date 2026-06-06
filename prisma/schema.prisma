@@ -61,13 +61,14 @@ model User {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
-  role             Role?            @relation(fields: [roleId], references: [id])
-  accounts         Account[]
-  sessions         Session[]
-  queueMemberships QueueMember[]
-  assignedTickets  ServiceRequest[] @relation("AssignedAgent")
-  comments         Comment[]
-  activityLogs     ActivityLog[]
+  role                Role?               @relation(fields: [roleId], references: [id])
+  accounts            Account[]
+  sessions            Session[]
+  queueMemberships    QueueMember[]
+  assignedTickets     ServiceRequest[]    @relation("AssignedAgent")
+  comments            Comment[]
+  activityLogs        ActivityLog[]
+  knowledgeArticles   KnowledgeArticle[]
 }
 
 enum UserStatus {
@@ -237,15 +238,25 @@ model EmailTemplate {
   updatedAt DateTime @updatedAt
 }
 
+enum KnowledgeStatus {
+  draft
+  published
+  archived
+}
+
 model KnowledgeArticle {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
+  articleId   String          @unique // e.g. ART001
   title       String
-  content     String   @db.Text
-  category    String
-  tags        String[] @default([])
-  isPublished Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  content     String          @db.Text
+  type        String          // How-To Guide, FAQ, Troubleshooting, etc.
+  ticketType  String          // Technical Support, Billing, etc.
+  status      KnowledgeStatus @default(draft)
+  authorId    String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  author User? @relation(fields: [authorId], references: [id])
 }
 
 enum CsatRating {
