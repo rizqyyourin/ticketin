@@ -203,3 +203,140 @@
 .radar-pulse {
   animation: radar 1.8s ease-out infinite;
 }
+
+@keyframes sync-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes message-in {
+  0% {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  15%, 85% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes queue-shuffle {
+  0%, 20% {
+    transform: translateY(0);
+  }
+  35% {
+    transform: translateY(calc(var(--shift, 0) * -1 * 36px));
+  }
+  65% {
+    transform: translateY(calc(var(--shift, 0) * -1 * 36px));
+  }
+  80%, 100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes rbac-row-in {
+  0% {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes audit-flash {
+  0%, 70%, 100% {
+    border-color: oklch(0.9 0.015 24);
+    background-color: oklch(1 0 0);
+  }
+  75%, 85% {
+    border-color: oklch(0.62 0.22 24 / 30%);
+    background-color: oklch(0.62 0.22 24 / 5%);
+  }
+}
+
+.dark .animate-audit-flash {
+  animation-name: audit-flash-dark;
+}
+
+@keyframes audit-flash-dark {
+  0%, 70%, 100% {
+    border-color: oklch(1 0 0 / 11%);
+    background-color: oklch(0.21 0.016 24 / 60%);
+  }
+  75%, 85% {
+    border-color: oklch(0.7 0.2 24 / 30%);
+    background-color: oklch(0.7 0.2 24 / 10%);
+  }
+}
+
+@keyframes toggle-on {
+  0%, 40% {
+    left: 2px;
+    right: auto;
+  }
+  60%, 100% {
+    left: auto;
+    right: 2px;
+  }
+}
+
+.animate-sync-ping {
+  animation: sync-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.animate-message-in {
+  animation: message-in 4s ease-out infinite;
+}
+
+.animate-queue-item:nth-child(1) {
+  --shift: 0;
+  animation: queue-shuffle 5s ease-in-out infinite;
+}
+
+.animate-queue-item:nth-child(2) {
+  --shift: 0;
+  animation: queue-shuffle 5s ease-in-out infinite;
+  animation-delay: 0.1s;
+}
+
+.animate-queue-item:nth-child(3) {
+  --shift: 1;
+  animation: queue-shuffle 5s ease-in-out infinite;
+  animation-delay: 0.2s;
+}
+
+.animate-queue-item:nth-child(4) {
+  --shift: 1;
+  animation: queue-shuffle 5s ease-in-out infinite;
+  animation-delay: 0.3s;
+}
+
+.animate-rbac-row {
+  animation: rbac-row-in 0.5s ease-out both;
+}
+
+.animate-audit-flash {
+  animation: audit-flash 4s ease-in-out infinite;
+}
+
+.animate-toggle-on {
+  animation: toggle-on 3s ease-in-out infinite;
+}
+
+.animate-typing-dots {
+  animation: fade-in 1s ease-out both;
+  animation-delay: 1.6s;
+}

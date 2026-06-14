@@ -2,44 +2,37 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
-  BarChart3,
   Ticket,
-  Clock,
   Layers,
   LayoutDashboard,
-  Mail,
-  MessageSquare,
   Shield,
   Zap,
   TrendingUp,
   Globe,
   Settings,
-  Plus,
   Check,
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
+import { featureMockups } from "@/components/landing/feature-mockups";
 
 const features = [
   {
     title: "Omnichannel Inbox",
     description: "Consolidate every customer conversation into one sleek interface. Speed up response times by 40%.",
-    icon: Mail,
     points: ["Real-time message syncing", "One-click internal transfers"],
   },
   {
     title: "Smart Queueing",
     description: "Automated routing based on priority, SLA, and team capacity. No more lost tickets.",
-    icon: Layers,
     points: ["Dynamic priority sorting", "Load-balanced routing"],
   },
   {
     title: "Advanced RBAC",
     description: "Granular access controls for growing teams. Security and order, baked into the core.",
-    icon: Shield,
     points: ["Audit logs for every action", "Custom team permissions"],
   },
-];
+] as const;
 
 const plans = [
   {
@@ -202,7 +195,9 @@ export default function Home() {
 
         {/* Features Split Section */}
         <section id="features" className="py-32 space-y-32">
-          {features.map((f, i) => (
+          {features.map((f, i) => {
+            const Mockup = featureMockups[f.title];
+            return (
             <div key={f.title} className={`flex flex-col gap-12 lg:flex-row lg:items-center ${i % 2 === 1 ? 'lg:flex-row-reverse' : ''}`}>
               <div className="flex-1 space-y-6">
                 <h2 className="text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{f.title}</h2>
@@ -220,14 +215,13 @@ export default function Home() {
                    ))}
                 </ul>
               </div>
-              <div className="flex-1 aspect-video rounded-[2.5rem] bg-zinc-100 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 overflow-hidden relative group">
-                 <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                 <div className="absolute inset-0 flex items-center justify-center">
-                    <f.icon className="size-24 text-zinc-200 dark:text-zinc-800 transition-transform group-hover:scale-110 group-hover:text-primary/20" />
-                 </div>
+              <div className="flex-1 aspect-video rounded-[2.5rem] bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 overflow-hidden relative group shadow-sm">
+                 <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                 <Mockup />
               </div>
             </div>
-          ))}
+            );
+          })}
         </section>
 
         {/* Pricing Section */}
