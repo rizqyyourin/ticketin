@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "db:seed": "dotenv -e .env -- ts-node --esm prisma/seed.ts",
+    "db:tunnel": "ssh -N -L 5432:127.0.0.1:5432 root@103.47.224.225",
     "email:poll": "ts-node -r tsconfig-paths/register scripts/imap-poll.ts",
     "email:poll:prod": "node --import tsx scripts/imap-poll.ts"
   },

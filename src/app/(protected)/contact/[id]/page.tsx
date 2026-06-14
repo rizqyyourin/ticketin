@@ -27,7 +27,7 @@ import { PhoneInput } from "@/components/ui/phone-input";
 
 type Title = "Mr" | "Ms";
 type Priority = "high" | "medium" | "low";
-type Status = "open" | "in_progress" | "pending" | "resolved" | "closed";
+type Status = "new" | "open" | "in_progress" | "pending" | "resolved" | "closed";
 
 interface Contact {
   id: string;
@@ -61,6 +61,7 @@ const PRIORITY_STYLES: Record<Priority, { badge: string; label: string }> = {
 };
 
 const STATUS_STYLES: Record<Status, { badge: string; label: string; dot: string }> = {
+  new: { badge: "bg-sky-500/10 text-sky-500 border border-sky-500/20", label: "New", dot: "bg-sky-500" },
   open: { badge: "bg-blue-500/10 text-blue-500 border border-blue-500/20", label: "Open", dot: "bg-blue-500" },
   in_progress: { badge: "bg-violet-500/10 text-violet-500 border border-violet-500/20", label: "In Progress", dot: "bg-violet-500" },
   pending: { badge: "bg-amber-500/10 text-amber-600 border border-amber-500/20", label: "Pending", dot: "bg-amber-500" },
@@ -526,7 +527,7 @@ function ContactDetail({ id }: { id: string }) {
             <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-5 space-y-3">
               <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Ticket Summary</h2>
               <div className="grid grid-cols-2 gap-3">
-                {(["open", "in_progress", "resolved", "closed"] as Status[]).map((s) => {
+                {(["new", "open", "in_progress", "pending", "resolved", "closed"] as Status[]).map((s) => {
                   const count = relatedRequests.filter((r) => r.status === s).length;
                   const st = STATUS_STYLES[s];
                   const textColor = st.badge.split(" ").find((c) => c.startsWith("text-")) ?? "text-zinc-500";
