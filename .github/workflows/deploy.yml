@@ -1,7 +1,9 @@
 name: Deploy Ticketin
 
-# Disabled: production deploys are handled by Coolify.
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 concurrency:
