@@ -2,6 +2,10 @@
 
 Ticketin adalah CRM ticketing untuk customer experience berbasis email-first workflow.
 
+<p align="center">
+  <a href="https://ticketin.yourin.my.id"><img src="https://img.shields.io/badge/Live-ticketin.yourin.my.id-22C55E?style=for-the-badge&logo=vercel&logoColor=white" alt="Live"></a>
+</p>
+
 ## Stack
 
 - Next.js (App Router)
