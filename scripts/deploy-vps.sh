@@ -37,9 +37,7 @@ echo "[$(date -Iseconds)] Generating Prisma client"
 npx prisma generate
 
 echo "[$(date -Iseconds)] Syncing database schema"
-set -x
 npx prisma db push --accept-data-loss
-set +x
 
 echo "[$(date -Iseconds)] Running npm run build"
 NODE_ENV=production npm run build
