@@ -1,7 +1,7 @@
 module.exports = {
   apps: [{
     name: 'ticketin',
-    script: 'node_modules/.bin/next',
+    script: 'node_modules/next/dist/bin/next',
     args: 'start --port 3001',
     cwd: '/var/www/ticketin',
 
