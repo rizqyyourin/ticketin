@@ -4,6 +4,8 @@ module.exports = {
     script: 'node_modules/next/dist/bin/next',
     args: 'start --port 3001',
     cwd: '/var/www/ticketin',
+    interpreter: 'node',
+    node_args: '',
 
     env: {
       NODE_ENV: 'production',
