@@ -30,17 +30,31 @@ git fetch origin "$BRANCH"
 echo "[$(date -Iseconds)] Pulling latest branch '$BRANCH'"
 git pull --ff-only origin "$BRANCH"
 
-echo "[$(date -Iseconds)] Running npm ci"
-npm ci
+echo "[$(date -Iseconds)] Running pnpm/npm install"
+if [[ -f pnpm-lock.yaml ]] && command -v pnpm >/dev/null 2>&1; then
+  pnpm install --frozen-lockfile
+elif [[ -f package-lock.json ]]; then
+  npm ci
+else
+  npm install
+fi
 
 echo "[$(date -Iseconds)] Generating Prisma client"
-npx prisma generate
+if command -v pnpm >/dev/null 2>&1 && [[ -f pnpm-lock.yaml ]]; then
+  pnpm exec prisma generate
+else
+  npx prisma generate
+fi
 
 echo "[$(date -Iseconds)] Syncing database schema"
-npx prisma db push --accept-data-loss
+if command -v pnpm >/dev/null 2>&1 && [[ -f pnpm-lock.yaml ]]; then
+  pnpm exec prisma db push --accept-data-loss
+else
+  npx prisma db push --accept-data-loss
+fi
 
-echo "[$(date -Iseconds)] Running npm run build"
-NODE_ENV=production npm run build
+echo "[$(date -Iseconds)] Running build"
+NODE_ENV=production pnpm run build 2>/dev/null || NODE_ENV=production npm run build
 
 echo "[$(date -Iseconds)] Reloading PM2 app '$PM2_APP_NAME'"
 if pm2 describe "$PM2_APP_NAME" >/dev/null 2>&1; then
