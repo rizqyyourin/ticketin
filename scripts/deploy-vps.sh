@@ -58,10 +58,9 @@ NODE_ENV=production pnpm run build 2>/dev/null || NODE_ENV=production npm run bu
 
 echo "[$(date -Iseconds)] Reloading PM2 app '$PM2_APP_NAME'"
 if pm2 describe "$PM2_APP_NAME" >/dev/null 2>&1; then
-  pm2 reload ecosystem.config.cjs --only "$PM2_APP_NAME" --update-env
-else
-  pm2 start ecosystem.config.cjs --only "$PM2_APP_NAME" --update-env
+  pm2 delete "$PM2_APP_NAME" >/dev/null 2>&1 || true
 fi
+pm2 start ecosystem.config.cjs --only "$PM2_APP_NAME" --update-env
 
 pm2 save
 
