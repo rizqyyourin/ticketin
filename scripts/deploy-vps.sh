@@ -66,5 +66,13 @@ fi
 pm2 save
 
 echo "[$(date -Iseconds)] Running local health check"
-curl --fail --silent --show-error --retry 15 --retry-delay 2 --retry-connrefused http://127.0.0.1:3001/ >/dev/null
+if ! curl --fail --silent --show-error --retry 15 --retry-delay 2 --retry-connrefused http://127.0.0.1:3001/ >/dev/null; then
+  echo "[$(date -Iseconds)] Health check failed, capturing PM2 diagnostics"
+  pm2 describe "$PM2_APP_NAME" --no-color || true
+  echo "---- PM2 error log (last 50 lines) ----"
+  tail -n 50 /var/log/pm2/ticketin-error.log 2>/dev/null || true
+  echo "---- PM2 out log (last 50 lines) ----"
+  tail -n 50 /var/log/pm2/ticketin-out.log 2>/dev/null || true
+  exit 1
+fi
 echo "[$(date -Iseconds)] Deploy complete for '$PM2_APP_NAME'."
