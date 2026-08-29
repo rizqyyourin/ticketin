@@ -159,48 +159,139 @@ async function main() {
 
   console.log(`✓ Contacts seeded: ${contact1.customerName}, ${contact2.customerName}, ${contact3.customerName}`);
 
-  // ─── Service Requests ──────────────────────────────────────────────────────
-  const sr1 = await prisma.serviceRequest.upsert({
-    where: { ticketNumber: "SR0001" },
-    update: {},
-    create: {
-      ticketNumber: "SR0001",
-      subject: "Cannot access customer portal",
-      description: "User is unable to log in to the customer portal since this morning. Error message: 'Invalid credentials'.",
-      category: "Technical Issue",
-      priority: "high",
-      status: "open",
-      contactId: contact1.id,
-      assignedTo: agentUser.id,
-      queueId: techQueue.id,
-      dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      activityLogs: {
-        create: { type: "created", detail: "Ticket created via seed", actorId: adminUser.id },
-      },
-    },
-  });
+  // ─── Service Requests (SR0001 - SR0009) ────────────────────────────────────
+  const srData = [
+    { ticketNumber: "SR0001", subject: "Cannot access customer portal", category: "Technical Issue", priority: "high" as const, status: "open" as const, contactId: contact1.id, assignedTo: adminUser.id, queueId: techQueue.id, dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+    { ticketNumber: "SR0002", subject: "Invoice discrepancy for March billing", category: "Billing", priority: "medium" as const, status: "in_progress" as const, contactId: contact2.id, assignedTo: adminUser.id, queueId: billingQueue.id, dueDate: new Date(Date.now() + 48 * 60 * 60 * 1000) },
+    { ticketNumber: "SR0003", subject: "Database connection timeout error", category: "Technical Issue", priority: "high" as const, status: "open" as const, contactId: contact3.id, assignedTo: adminUser.id, queueId: techQueue.id, dueDate: new Date(Date.now() - 2 * 60 * 60 * 1000) },
+    { ticketNumber: "SR0004", subject: "API rate limit exceeded during peak hours", category: "Technical Support", priority: "high" as const, status: "in_progress" as const, contactId: contact1.id, assignedTo: adminUser.id, queueId: techQueue.id, dueDate: new Date(Date.now() - 5 * 60 * 60 * 1000) },
+    { ticketNumber: "SR0005", subject: "Payment gateway transaction failed", category: "Billing", priority: "high" as const, status: "pending" as const, contactId: contact2.id, assignedTo: adminUser.id, queueId: billingQueue.id, dueDate: new Date(Date.now() - 12 * 60 * 60 * 1000) },
+    { ticketNumber: "SR0006", subject: "License renewal inquiry for Q3", category: "General Inquiry", priority: "low" as const, status: "open" as const, contactId: contact3.id, assignedTo: adminUser.id, queueId: techQueue.id, dueDate: new Date(Date.now() + 72 * 60 * 60 * 1000) },
+    { ticketNumber: "SR0007", subject: "SSL Certificate expiration warning", category: "Technical Support", priority: "medium" as const, status: "new" as const, contactId: contact1.id, assignedTo: adminUser.id, queueId: techQueue.id, dueDate: new Date(Date.now() + 36 * 60 * 60 * 1000) },
+    { ticketNumber: "SR0008", subject: "Export report CSV file corrupted", category: "Technical Support", priority: "medium" as const, status: "new" as const, contactId: contact2.id, assignedTo: adminUser.id, queueId: techQueue.id, dueDate: new Date(Date.now() + 18 * 60 * 60 * 1000) },
+    { ticketNumber: "SR0009", subject: "User permission role configuration request", category: "Account Issue", priority: "low" as const, status: "open" as const, contactId: contact3.id, assignedTo: adminUser.id, queueId: techQueue.id, dueDate: new Date(Date.now() + 48 * 60 * 60 * 1000) },
+  ];
 
-  const sr2 = await prisma.serviceRequest.upsert({
-    where: { ticketNumber: "SR0002" },
-    update: {},
-    create: {
-      ticketNumber: "SR0002",
-      subject: "Invoice discrepancy for March billing",
-      description: "The March invoice shows incorrect charges. Amount billed does not match the agreed contract terms.",
-      category: "Billing",
-      priority: "medium",
-      status: "in_progress",
-      contactId: contact2.id,
-      assignedTo: supervisorUser.id,
-      queueId: billingQueue.id,
-      dueDate: new Date(Date.now() + 48 * 60 * 60 * 1000),
-      activityLogs: {
-        create: { type: "created", detail: "Ticket created via seed", actorId: adminUser.id },
+  const serviceRequests: Record<string, { id: string; ticketNumber: string }> = {};
+  for (const item of srData) {
+    const sr = await prisma.serviceRequest.upsert({
+      where: { ticketNumber: item.ticketNumber },
+      update: {
+        subject: item.subject,
+        description: `Detailed description for ticket ${item.ticketNumber}: ${item.subject}. Please investigate and resolve.`,
+        category: item.category,
+        priority: item.priority,
+        status: item.status,
+        dueDate: item.dueDate,
+        assignedTo: adminUser.id,
       },
-    },
-  });
+      create: {
+        ...item,
+        description: `Detailed description for ticket ${item.ticketNumber}: ${item.subject}. Please investigate and resolve.`,
+        activityLogs: {
+          create: { type: "created", detail: "Ticket created via seed", actorId: adminUser.id },
+        },
+      },
+    });
+    serviceRequests[item.ticketNumber] = { id: sr.id, ticketNumber: sr.ticketNumber };
+  }
 
-  console.log(`✓ Service Requests seeded: ${sr1.ticketNumber}, ${sr2.ticketNumber}`);
+  console.log(`✓ Service Requests seeded: ${Object.keys(serviceRequests).length} tickets (SR0001 to SR0009)`);
+
+  // ─── Notifications (3 of each type = 9 total) ─────────────────────────────
+  await prisma.notification.deleteMany({ where: { userId: adminUser.id } });
+
+  const notificationsData = [
+    // ── SLA Breached (3)
+    {
+      userId: adminUser.id,
+      type: "sla_breached" as const,
+      title: "SLA Breached: Ticket #SR0003",
+      message: 'Ticket "Database connection timeout error" has breached its SLA response deadline (Due 2h ago). Immediate resolution required.',
+      isRead: false,
+      serviceRequestId: serviceRequests["SR0003"].id,
+      createdAt: new Date(Date.now() - 10 * 60 * 1000),
+    },
+    {
+      userId: adminUser.id,
+      type: "sla_breached" as const,
+      title: "SLA Breached: Ticket #SR0004",
+      message: 'Ticket "API rate limit exceeded during peak hours" has exceeded SLA handling time limit (Due 5h ago). Please update ticket status.',
+      isRead: false,
+      serviceRequestId: serviceRequests["SR0004"].id,
+      createdAt: new Date(Date.now() - 35 * 60 * 1000),
+    },
+    {
+      userId: adminUser.id,
+      type: "sla_breached" as const,
+      title: "SLA Breached: Ticket #SR0005",
+      message: 'Ticket "Payment gateway transaction failed" has passed its target SLA resolution time.',
+      isRead: true,
+      serviceRequestId: serviceRequests["SR0005"].id,
+      createdAt: new Date(Date.now() - 120 * 60 * 1000),
+    },
+
+    // ── Inbound Email (3)
+    {
+      userId: adminUser.id,
+      type: "inbound_email" as const,
+      title: "New Message: Ticket #SR0001",
+      message: 'Andi Pratama replied: "Hi support team, I tried clearing cache but the login page still returns HTTP 500 error. Please help!"',
+      isRead: false,
+      serviceRequestId: serviceRequests["SR0001"].id,
+      createdAt: new Date(Date.now() - 15 * 60 * 1000),
+    },
+    {
+      userId: adminUser.id,
+      type: "inbound_email" as const,
+      title: "New Message: Ticket #SR0002",
+      message: 'Citra Dewi replied: "Thank you for the update. Here is the attached PDF receipt for your billing verification."',
+      isRead: false,
+      serviceRequestId: serviceRequests["SR0002"].id,
+      createdAt: new Date(Date.now() - 45 * 60 * 1000),
+    },
+    {
+      userId: adminUser.id,
+      type: "inbound_email" as const,
+      title: "New Message: Ticket #SR0006",
+      message: 'Budi Santoso replied: "Could you please send over the official quotation for 25 additional user licenses?"',
+      isRead: true,
+      serviceRequestId: serviceRequests["SR0006"].id,
+      createdAt: new Date(Date.now() - 180 * 60 * 1000),
+    },
+
+    // ── Ticket Assigned (3)
+    {
+      userId: adminUser.id,
+      type: "ticket_assigned" as const,
+      title: "Ticket Assigned: Ticket #SR0007",
+      message: 'You have been assigned to handle ticket #SR0007 ("SSL Certificate expiration warning").',
+      isRead: false,
+      serviceRequestId: serviceRequests["SR0007"].id,
+      createdAt: new Date(Date.now() - 5 * 60 * 1000),
+    },
+    {
+      userId: adminUser.id,
+      type: "ticket_assigned" as const,
+      title: "Ticket Assigned: Ticket #SR0008",
+      message: 'You have been assigned to handle ticket #SR0008 ("Export report CSV file corrupted").',
+      isRead: true,
+      serviceRequestId: serviceRequests["SR0008"].id,
+      createdAt: new Date(Date.now() - 60 * 60 * 1000),
+    },
+    {
+      userId: adminUser.id,
+      type: "ticket_assigned" as const,
+      title: "Ticket Assigned: Ticket #SR0009",
+      message: 'You have been assigned to handle ticket #SR0009 ("User permission role configuration request").',
+      isRead: true,
+      serviceRequestId: serviceRequests["SR0009"].id,
+      createdAt: new Date(Date.now() - 240 * 60 * 1000),
+    },
+  ];
+
+  await prisma.notification.createMany({ data: notificationsData });
+  console.log(`✓ Notifications seeded: ${notificationsData.length} notifications (3 SLA Breached, 3 Inbound Email, 3 Ticket Assigned)`);
 
   // ─── Knowledge Articles ────────────────────────────────────────────────────
   const knowledgeArticles = [

@@ -34,6 +34,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/notification-bell";
 
 const sidebarItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", module: null },
@@ -254,16 +255,16 @@ export default function DashboardLayout({
             onToggleTheme={toggleDarkMode}
             onLogout={handleLogout}
           />
-
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
+            <NotificationBell />
+
+            <button
               onClick={toggleDarkMode}
-              className="rounded-xl border border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              className="size-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all focus:outline-none focus:ring-2 focus:ring-primary/20"
+              title="Toggle theme"
             >
               {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-            </Button>
+            </button>
             
             <div className="flex items-center gap-3 pl-4 border-l border-zinc-200 dark:border-zinc-800 relative">
               <div className="text-right hidden md:block">

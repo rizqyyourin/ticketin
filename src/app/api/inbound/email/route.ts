@@ -75,7 +75,19 @@ export async function POST(request: Request) {
   const ticket = uniqueRefIds.length
     ? await prisma.serviceRequest.findFirst({
         where: { emailThreadId: { in: uniqueRefIds } },
-        select: { id: true, ticketNumber: true, contact: { select: { email: true } } },
+        select: {
+          id: true,
+          ticketNumber: true,
+          subject: true,
+          assignedTo: true,
+          queueId: true,
+          queue: {
+            select: {
+              members: { select: { userId: true } },
+            },
+          },
+          contact: { select: { customerName: true, email: true } },
+        },
       })
     : null;
 
@@ -105,6 +117,38 @@ export async function POST(request: Request) {
       serviceRequestId: ticket.id,
     },
   });
+
+  // ── In-App Notification ───────────────────────────────────────────────────
+  try {
+    const recipients = new Set<string>();
+    if (ticket.assignedTo) {
+      recipients.add(ticket.assignedTo);
+    } else if (ticket.queue?.members?.length) {
+      ticket.queue.members.forEach((m) => recipients.add(m.userId));
+    } else {
+      const activeUsers = await prisma.user.findMany({
+        where: { status: "active" },
+        select: { id: true },
+      });
+      activeUsers.forEach((u) => recipients.add(u.id));
+    }
+
+    const snippet = text.slice(0, 100) + (text.length > 100 ? "..." : "");
+    const customerName = ticket.contact?.customerName ?? from;
+
+    await prisma.notification.createMany({
+      data: Array.from(recipients).map((userId) => ({
+        userId,
+        type: "inbound_email",
+        title: `New Message: Ticket #${ticket.ticketNumber}`,
+        message: `${customerName} replied: "${snippet}"`,
+        serviceRequestId: ticket.id,
+      })),
+    });
+  } catch (notifErr) {
+    console.error("[Inbound] Failed to create notification:", notifErr);
+  }
+
 
   // ── CSAT trigger: every_reply ──────────────────────────────────────────────
   const csatSettings = await prisma.csatSettings.findFirst();

@@ -3,14 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently --kill-others -n next,imap -c cyan,yellow \"next dev\" \"ts-node -r tsconfig-paths/register scripts/imap-poll.ts\"",
+    "dev": "concurrently --kill-others -n next,imap,sla -c cyan,yellow,magenta \"next dev\" \"tsx scripts/imap-poll.ts\" \"tsx scripts/sla-checker.ts\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "db:seed": "dotenv -e .env -- ts-node --esm prisma/seed.ts",
     "db:tunnel": "ssh -N -L 5432:127.0.0.1:5432 root@103.47.224.225",
-    "email:poll": "ts-node -r tsconfig-paths/register scripts/imap-poll.ts",
-    "email:poll:prod": "node --import tsx scripts/imap-poll.ts"
+    "email:poll": "tsx scripts/imap-poll.ts",
+    "email:poll:prod": "node --import tsx scripts/imap-poll.ts",
+    "sla:poll": "tsx scripts/sla-checker.ts"
   },
   "prisma": {
     "seed": "ts-node --esm prisma/seed.ts"

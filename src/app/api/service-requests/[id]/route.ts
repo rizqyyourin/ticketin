@@ -14,8 +14,13 @@ const ESCALATION_MINUTES = 5;
  * Returns the (possibly mutated) ticket to be sent back to the client.
  */
 async function checkAndEscalate(ticketId: string) {
-  const ticket = await prisma.serviceRequest.findUnique({
-    where: { id: ticketId },
+  const ticket = await prisma.serviceRequest.findFirst({
+    where: {
+      OR: [
+        { id: ticketId },
+        { ticketNumber: ticketId },
+      ],
+    },
     include: {
       contact: true,
       assignedUser: { select: { id: true, username: true, email: true } },
